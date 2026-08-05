@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cave</title>
+<meta name="theme-color" content="#7A2E39">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cave">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  /* App composition (uses the design-system tokens/components in styles.css) */
+  html { scrollbar-gutter:stable; }  /* reserve the scrollbar's space so it never shifts the layout */
+  .wrap { max-width:860px; margin:0 auto; padding:0 clamp(var(--space-4),4vw,var(--space-6)); }
+  .appbar { position:sticky; top:0; z-index:6; background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(8px); display:flex; align-items:center; gap:var(--space-1); max-width:860px; margin:0 auto;
+    padding:calc(env(safe-area-inset-top,0px) + var(--space-2)) clamp(var(--space-4),4vw,var(--space-6)) var(--space-2); }
+  .brandwrap { display:inline-flex; align-items:center; gap:.4rem; }
+  .brand-ic { border-radius:6px; display:block; flex:0 0 auto; }
+  .brand { font-family:var(--font-serif); font-size:var(--text-xl); line-height:1; }
+  .brand::first-letter { color:var(--accent); }
+  .net { width:8px; height:8px; border-radius:50%; background:var(--st-ready-fg); align-self:center; position:relative; top:3px; }
+  .net.off { background:var(--st-late-fg); }
+  #install { border:1px solid var(--accent); color:var(--accent); border-radius:var(--radius-pill);
+    min-height:36px; padding:0 var(--space-3); font-size:var(--text-sm); font-weight:600; display:inline-flex; align-items:center; gap:.3rem; }
+  #install[hidden] { display:none; }
+
+  .summary { padding-top:var(--space-1); }
+  .summary-total { margin:0; font-family:var(--font-serif); font-size:var(--text-lg); }
+  .summary-total b { font-weight:600; }
+  .summary-caves { margin:.1rem 0 0; font-size:var(--text-sm); color:var(--text-muted); }
+  .summary-caves .n { color:var(--text); font-variant-numeric:tabular-nums; }
+
+  .controls { position:sticky; top:calc(env(safe-area-inset-top,0px) + 3.2rem); z-index:5; background:var(--bg); padding:var(--space-4) 0 var(--space-2); }
+  .listbar { margin-top:var(--space-3); }
+  .sortbtn { display:inline-flex; align-items:center; gap:.35rem; font-size:var(--text-sm); color:var(--text-muted);
+    padding:var(--space-1) var(--space-2); border-radius:var(--radius-sm); white-space:nowrap; flex:0 0 auto; }
+  .sortbtn:hover { background:var(--surface-2); color:var(--text); }
+  .sortbtn b { color:var(--text); font-weight:600; }
+  .filterwrap { position:relative; margin-top:var(--space-3); }
+  .filterbar { display:flex; align-items:center; gap:var(--space-2); min-height:var(--tap); padding-right:3rem;
+    flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .filterbar::-webkit-scrollbar { display:none; }
+  .filterbar > .dd { flex:0 0 auto; }
+  .dd { position:relative; }
+  .dd-btn { display:inline-flex; align-items:center; gap:.25rem; min-height:38px; padding:0 .4rem 0 var(--space-3);
+    border:1px solid var(--border); border-radius:var(--radius-pill); background:var(--surface-1); color:var(--text);
+    font-size:var(--text-sm); white-space:nowrap; }
+  .dd-btn.active { border-color:var(--accent); background:var(--accent-soft); }
+  .dd-btn .chev { display:inline-flex; color:var(--text-subtle); transition:transform var(--dur-fast) var(--ease); }
+  .dd.open .dd-btn .chev { transform:rotate(180deg); }
+  .dd-btn { position:relative; }
+  .dd-btn .cnt { position:absolute; top:-6px; right:-4px; width:17px; height:17px; display:grid; place-items:center;
+    background:var(--accent); color:var(--accent-contrast); border-radius:50%; font-size:10px; font-weight:700;
+    line-height:1; border:2px solid var(--bg); }
+  .dd-panel { position:absolute; top:calc(100% + 6px); left:0; z-index:8; min-width:170px; max-width:min(72vw,240px);
+    max-height:56vh; overflow:auto; background:var(--surface-1); border:1px solid var(--border);
+    border-radius:var(--radius-md); box-shadow:var(--shadow-md); padding:var(--space-1); display:none; }
+  .dd.open .dd-panel { display:block; }
+  .dd.align-end .dd-panel { left:auto; right:0; }
+  .dd-panel label { display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2); border-radius:var(--radius-sm);
+    cursor:pointer; font-size:var(--text-sm); white-space:nowrap; }
+  .dd-panel label:hover { background:var(--surface-2); }
+  .dd-panel input { width:18px; height:18px; accent-color:var(--accent); flex:0 0 auto; margin:0; }
+  .dd-panel .swatch { width:.7rem; height:.7rem; border-radius:50%; flex:0 0 auto; }
+  /* Overlay pinned to the right of the filter bar — out of flow, so showing/hiding it
+     never reserves space or shifts the bar (and it stays put while filters scroll under it). */
+  .reset-btn { position:absolute; top:0; right:0; height:100%; z-index:3; width:auto; min-width:0; border-radius:0;
+    display:inline-flex; align-items:center; justify-content:flex-end; padding:0 var(--space-1) 0 var(--space-6);
+    background:linear-gradient(to right, transparent, var(--bg) var(--space-5)); color:var(--text-subtle); }
+  .reset-btn:hover { color:var(--text); }
+  .reset-btn.off { display:none; }
+
+  /* Autocomplete combobox — reuses the tested .dd-panel popover (scrollable, themed, positioned)
+     instead of native <datalist>, which is inconsistent and often unscrollable on mobile. */
+  .combo-panel { left:0; right:auto; top:calc(100% + 4px); z-index:9; display:none;
+    min-width:100%; width:max-content; max-width:min(80vw,320px); }
+  .combo-panel.open { display:block; }
+  .combo-opt { display:block; width:100%; text-align:left; padding:var(--space-2) var(--space-3);
+    border-radius:var(--radius-sm); font-size:var(--text-md); color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .combo-opt:hover, .combo-opt.active { background:var(--surface-2); }
+
+  .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr)); gap:var(--space-2);
+    margin-top:var(--space-1); padding-bottom:calc(6rem + env(safe-area-inset-bottom,0px)); }
+  .wine-nom { font-family:var(--font-serif); font-size:var(--text-lg); line-height:var(--leading-snug); }
+  .wine-sub { font-size:var(--text-sm); color:var(--text-muted); margin-top:.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .wine-right { display:flex; flex-direction:column; align-items:flex-end; gap:.3rem; }
+  .qte { font-family:var(--font-serif); font-size:var(--text-lg); }
+  .qte small { font-size:var(--text-xs); color:var(--text-subtle); font-family:var(--font-sans); }
+  .qte.zero { color:var(--text-subtle); }
+  .empty { grid-column:1/-1; text-align:center; color:var(--text-muted); padding:var(--space-12) var(--space-4); font-family:var(--font-serif); font-size:var(--text-lg); }
+
+  /* Detail sheet bits */
+  .detail-sub { color:var(--text-muted); font-size:var(--text-base); margin-top:.15rem; }
+  .origin { color:var(--text-muted); font-size:var(--text-sm); margin:var(--space-3) 0 0; }
+  .origin b { color:var(--text); font-weight:600; }
+  .mat-card { margin:var(--space-4) 0; padding:var(--space-3) var(--space-4); }
+  .mat-card .top { display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; }
+  .mat-card p { margin:.4rem 0 0; font-size:var(--text-sm); color:var(--text-muted); }
+  .mat-card .set { margin-left:auto; font-size:var(--text-sm); color:var(--accent); text-decoration:underline; }
+  .section-label { margin:var(--space-5) 0 var(--space-2); }
+  .lot { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) .1rem; border-bottom:1px solid var(--border); }
+  .lot-where { font-size:var(--text-md); }
+  .lot-meta { font-size:var(--text-sm); color:var(--text-muted); }
+  .lot-qte { font-family:var(--font-serif); font-size:var(--text-lg); min-width:1.4rem; text-align:right; }
+  form { display:flex; flex-direction:column; gap:var(--space-3); }
+  .form-section { border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--space-4); background:var(--surface-1); }
+  .form-section h4 { margin:0 0 var(--space-3); font-family:var(--font-serif); font-weight:600; font-size:var(--text-md); }
+  details.adv > summary { cursor:pointer; font-size:var(--text-sm); color:var(--text-muted); padding:var(--space-2) 0; }
+  .hint { font-size:var(--text-xs); color:var(--st-ready-fg); min-height:1em; }
+  .sheet-foot { display:flex; gap:var(--space-3); margin-top:var(--space-5); }
+  .sheet-foot .btn { flex:1; }
+  .sort-opt { display:flex; align-items:center; gap:var(--space-3); width:100%; text-align:left; padding:var(--space-3) var(--space-2);
+    border-radius:var(--radius-sm); font-size:var(--text-md); }
+  .sort-opt:hover { background:var(--surface-2); }
+  .sort-opt[aria-selected="true"] { color:var(--accent); font-weight:600; }
+  .sort-opt .icon { margin-left:auto; color:var(--accent); }
+
+  /* Confirm dialog (centered card) */
+  .backdrop.center { align-items:center; }
+  .sheet--dialog { max-width:360px; border-radius:var(--radius-lg); padding:0 var(--space-5) var(--space-5); }
+  .sheet--dialog .sheet__title { font-size:var(--text-lg); }
+  .sheet--dialog p { margin:var(--space-2) 0 0; }
+
+  /* Skeleton loading */
+  .skel-row { height:66px; border-radius:var(--radius-md); background:var(--surface-1); border:1px solid var(--border); position:relative; overflow:hidden; }
+  .skel-row::after { content:""; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent, color-mix(in srgb,var(--text-subtle) 14%, transparent), transparent); animation:shimmer 1.3s infinite; }
+  @keyframes shimmer { 100% { transform:translateX(100%); } }
+  @media (prefers-reduced-motion: reduce){ .skel-row::after { animation:none; } }
+
+  /* Wine location — surfaces the cave on wide rows, hidden on mobile to stay clean */
+
+  .offline-bar { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--space-4) + env(safe-area-inset-bottom,0px));
+    z-index:25; background:var(--text); color:var(--bg); font-size:var(--text-sm); padding:var(--space-2) var(--space-4);
+    border-radius:var(--radius-pill); box-shadow:var(--shadow-lg); display:none; align-items:center; gap:var(--space-2); }
+  .offline-bar.show { display:flex; }
+</style>
+</head>
+<body>
+  <header class="appbar">
+    <span class="brandwrap">
+      <img class="brand-ic" src="/icon-192.png" alt="" width="26" height="26">
+      <span class="brand">Cave</span>
+      <span class="net" id="net" title="En ligne"></span>
+    </span>
+    <span class="grow"></span>
+    <button class="iconbtn" id="theme" aria-label="Changer de thème"></button>
+    <button id="install" hidden></button>
+  </header>
+
+  <div class="wrap">
+    <section class="summary">
+      <p class="summary-total" id="summary-total"></p>
+      <p class="summary-caves" id="summary-caves"></p>
+    </section>
+
+    <div class="controls">
+      <div class="search">
+        <span class="search-ic" id="search-ic"></span>
+        <input class="input" id="search" type="search" placeholder="Rechercher un vin, une appellation, un millésime…" autocomplete="off">
+        <button class="search-clear" id="search-clear" type="button" hidden aria-label="Effacer la recherche"></button>
+      </div>
+      <div class="filterwrap">
+      <div class="filterbar" id="filterbar">
+        <div class="dd" data-group="statuts"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="couleurs"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="caves"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="pays"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="regions"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="sous_regions"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="appellations"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="millesimes"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="capacites"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+      </div>
+      <button class="iconbtn reset-btn off" id="reset-filters" aria-label="Réinitialiser les filtres"></button>
+      </div>
+      <div class="listbar between">
+        <div class="cluster" style="gap:var(--space-3)">
+          <label class="toggle"><input type="checkbox" id="stockonly" checked><span class="track"></span> En stock</label>
+          <span class="count muted" id="count"></span>
+        </div>
+        <button class="sortbtn" id="sort-btn"></button>
+      </div>
+    </div>
+
+    <main class="list" id="list"></main>
+  </div>
+
+  <button class="fab" id="add"></button>
+  <div class="offline-bar" id="offline-bar"></div>
+  <div class="toast" id="toast"></div>
+
+  <div class="backdrop" id="detail-bd"><aside class="sheet" id="detail-sheet" role="dialog" aria-modal="true"></aside></div>
+  <div class="backdrop" id="form-bd"><aside class="sheet" id="form-sheet" role="dialog" aria-modal="true"></aside></div>
+  <div class="backdrop" id="sort-bd"><aside class="sheet" id="sort-sheet" role="dialog" aria-modal="true"></aside></div>
+  <div class="backdrop" id="install-bd"><aside class="sheet" id="install-sheet" role="dialog" aria-modal="true"></aside></div>
+  <div class="backdrop center" id="confirm-bd"><aside class="sheet sheet--dialog" id="confirm-sheet" role="alertdialog" aria-modal="true"></aside></div>
+
+<script>
+const ICONS = {
+  close:"M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+  add:"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z",
+  search:"M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+  dark_mode:"M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z",
+  light_mode:"M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z",
+  download:"M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z",
+  menu:"M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z",
+  sort:"M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z",
+  chevron:"M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z",
+  check:"M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+  reset:"M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z",
+  edit:"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+  trophy:"M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.91V19H7v2h10v-2h-4v-3.15c1.63-.28 2.98-1.41 3.61-2.91C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.31-.84 2.41-2 2.82V7h2v1z",
+  wine:"M6 3l.8 8.04c.14 1.4 1.24 2.52 2.62 2.71.19.03.38.05.58.06V19H8c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1h-2v-5.19c.2-.01.39-.03.58-.06 1.38-.19 2.48-1.31 2.62-2.71L18 3H6zm10.17 4H7.83l-.2-2h8.74l-.2 2z",
+  ios_share:"M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"
+};
+function svg(n,s){ return `<svg class="icon" viewBox="0 0 24 24" width="${s||22}" height="${s||22}" fill="currentColor" aria-hidden="true"><path d="${ICONS[n]}"/></svg>`; }
+const UA=navigator.userAgent;
+const BROWSER=/SamsungBrowser/i.test(UA)?"samsung":(/iPhone|iPad|iPod/i.test(UA)||(/Macintosh/.test(UA)&&"ontouchend"in document))?"ios":/Firefox/i.test(UA)?"firefox":/Edg|OPR|OPT/i.test(UA)?"other":/Chrome|CriOS/i.test(UA)?"chrome":"other";
+
+const COLOR_HUE={ "Rouge":"#8E2C3B","Rosé":"#D98A9A","Blanc sec":"#C6AE63","Blanc liquoreux":"#E0B341",
+  "Blanc pétillant":"#C4CE94","Champagne":"#E2C97E","Champagne rosé":"#E4B0AA","Crémant rosé":"#E4B0AA",
+  "Effervescent":"#CDD6BE","Rouge pétillant":"#AF5468","Jaune":"#C9A227" };
+const hue=c=>{
+  if(COLOR_HUE[c]) return COLOR_HUE[c];
+  const s=(c||"").toLowerCase(); if(!s) return "#9A8F82";
+  if(s.includes("ros")) return "#D98A9A";                                   // rosé, crémant/champagne rosé
+  if(s.startsWith("rouge")) return "#8E2C3B";                               // incl. joven/spumante/reserva…
+  if(/(champagne|cr[ée]mant|effervescent|p[ée]till|spumante|mousseux)/.test(s)) return "#D9C98A";
+  if(s.includes("jaune")||s.includes("paille")) return "#C9A227";
+  if(s.includes("liquoreux")||s.includes("doux")||s.includes("moelleux")) return "#E0B341";
+  if(s.includes("blanc")) return "#C6AE63";
+  return "#9A8F82";
+};
+const MAT_LABEL={ a_boire:"À boire", en_retard:"En retard", a_conserver:"À garder", inconnu:"—" };
+const MAT_PILL={ a_boire:"ready", en_retard:"late", a_conserver:"keep", inconnu:"unknown" };
+const STATUTS=[["a_boire","À boire"],["en_retard","En retard"],["a_conserver","À garder"]];
+const SORTS=[["maturite","À boire d'abord"],["nom","Nom (A–Z)"],["vieux","Plus vieux"],["stock","Stock faible"]];
+const CAPS=[[0.375,"Demi · 0,375 L"],[0.75,"Bouteille · 0,75 L"],[1,"Litre · 1 L"],[1.5,"Magnum · 1,5 L"],[3,"Double-magnum · 3 L"],[5,"Jéroboam · 5 L"],[6,"Mathusalem · 6 L"]];
+
+const $=s=>document.querySelector(s);
+const el=(t,cls,txt)=>{const e=document.createElement(t); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;};
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const plural=(n,w)=>`${n} ${w}${n>1?"s":""}`;
+
+let STATE={ wines:[], meta:null, colorMap:{}, appWin:{}, defaultCave:"", year:new Date().getFullYear(),
+  search:"", sort:"maturite", stockOnly:true, couleurs:new Set(), caves:new Set(), statuts:new Set(),
+  appellations:new Set(), pays:new Set(), regions:new Set(), sous_regions:new Set(), millesimes:new Set(), capacites:new Set() };
+const FILTER_GROUPS=["statuts","couleurs","caves","pays","regions","sous_regions","appellations","millesimes","capacites"];
+const appKey=(app,coul)=>String(app||"").trim().toLowerCase()+"\u0000"+String(coul||"").trim().toLowerCase();
+let QUEUE=[]; try{ QUEUE=JSON.parse(localStorage.getItem("cave-queue")||"[]"); }catch(e){}
+let filtersBuilt=false;
+
+/* ---- maturité (mirrors the Worker) ---- */
+function computeMat(w,year){
+  let amin=null,amax=null,src=null;
+  if(w.apogee_min!=null){ amin=w.apogee_min; amax=w.apogee_max; src="wine"; }
+  else { const aw=STATE.appWin[appKey(w.appellation,w.couleur)];
+    if(aw){ amin=aw.min; amax=aw.max; src="appellation"; }
+    else { const cm=STATE.colorMap[w.couleur]; if(cm){ amin=cm.apogee_min; amax=cm.apogee_max; src="couleur"; } } }
+  if(w.millesime==null||amin==null||amax==null) return {status:"inconnu",estimated:false,window_src:null};
+  const ready_from=w.millesime+amin, drink_by=w.millesime+amax, urgency=year-drink_by, estimated=(src==="couleur");
+  if(year<ready_from) return {status:"a_conserver",ready_from,drink_by,delta:ready_from-year,urgency,estimated,window_src:src};
+  if(year<=drink_by) return {status:"a_boire",ready_from,drink_by,delta:drink_by-year,urgency,estimated,window_src:src};
+  return {status:"en_retard",ready_from,drink_by,delta:year-drink_by,urgency,estimated,window_src:src};
+}
+function matText(m){
+  if(m.status==="inconnu") return "Fenêtre de garde à préciser.";
+  const est=m.window_src==="couleur"?" · estimation d'après la couleur":(m.window_src==="appellation"?" · fenêtre de l'appellation":"");
+  if(m.status==="a_boire") return `Apogée ${m.ready_from}–${m.drink_by} · encore ${plural(m.delta,"an")}${est}`;
+  if(m.status==="en_retard") return `Apogée dépassée depuis ${plural(m.delta,"an")} (jusqu'à ${m.drink_by})${est}`;
+  return `À ouvrir dès ${m.ready_from} · encore ${plural(m.delta,"an")} de garde${est}`;
+}
+function normalize(w){
+  w.lots=w.lots||[];
+  w.total_quantite=w.lots.reduce((n,l)=>n+(+l.quantite||0),0);
+  w.lot_count=w.lots.length;
+  w.caves=[...new Set(w.lots.map(l=>l.cave).filter(Boolean))].join(",");
+  w.maturite=computeMat(w,STATE.year);
+  return w;
+}
+function pill(m){ const p=el("span","pill pill--"+MAT_PILL[m.status]+(m.estimated?" pill--est":""),MAT_LABEL[m.status]); if(m.estimated)p.title="Estimation d'après la couleur"; return p; }
+
+/* ---- theme ---- */
+function isDarkNow(){ const t=document.documentElement.getAttribute("data-theme"); return t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches; }
+function updateThemeIcon(){ $("#theme").innerHTML=svg(isDarkNow()?"light_mode":"dark_mode",22); }
+$("#theme").addEventListener("click",()=>{ const t=isDarkNow()?"light":"dark"; document.documentElement.setAttribute("data-theme",t); try{localStorage.setItem("cave-theme",t)}catch(e){} updateThemeIcon(); });
+try{ const s=localStorage.getItem("cave-theme"); if(s)document.documentElement.setAttribute("data-theme",s); }catch(e){}
+
+/* static icons */
+$("#search-ic").innerHTML=svg("search",20);
+$("#reset-filters").innerHTML=svg("reset",20);
+$("#add").innerHTML=svg("add",20)+"<span>Ajouter</span>";
+updateThemeIcon();
+
+/* ---- load ---- */
+async function load(silent){
+  try{
+    const [wr,mr]=await Promise.all([fetch("/api/wines"),fetch("/api/meta")]);
+    const w=await wr.json(); STATE.meta=await mr.json(); STATE.year=w.year;
+    STATE.colorMap=Object.fromEntries((STATE.meta.color_apogee||[]).map(r=>[r.couleur,r]));
+    STATE.appWin={}; for(const a of (STATE.meta.appellations||[])){ if(a.appellation&&a.couleur&&a.apogee_min!=null) STATE.appWin[appKey(a.appellation,a.couleur)]={min:a.apogee_min,max:a.apogee_max}; }
+    STATE.wines=w.wines.map(normalize);
+    STATE.defaultCave=mode(STATE.wines.flatMap(x=>x.lots.map(l=>l.cave)).filter(Boolean))||(STATE.meta.caves[0]||"");
+    renderStats(); if(!filtersBuilt){ buildFilters(); filtersBuilt=true; } render();
+  }catch(err){ if(!silent) $("#summary-caves").textContent="Hors ligne — impossible de charger."; }
+}
+function mode(a){ const m={}; let b=null,bn=0; for(const v of a){ m[v]=(m[v]||0)+1; if(m[v]>bn){bn=m[v];b=v;} } return b; }
+function findWine(id){ return STATE.wines.find(w=>w.id===id); }
+function replaceWine(w){ normalize(w); const i=STATE.wines.findIndex(x=>x.id===w.id); if(i>=0)STATE.wines[i]=w; else STATE.wines.unshift(w); }
+
+/* ---- summary ---- */
+function renderStats(){
+  const totB=STATE.wines.reduce((n,w)=>n+w.total_quantite,0);
+  const totW=STATE.wines.filter(w=>w.total_quantite>0).length;
+  const totVal=STATE.wines.reduce((s,w)=>s+(w.lots||[]).reduce((a,l)=>a+(l.prix!=null?(+l.prix)*(+l.quantite||0):0),0),0);
+  const eur=v=>v.toLocaleString("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0});
+  $("#summary-total").innerHTML=`<b>${totB}</b> bouteilles · <b>${totW}</b> vins · <b>${eur(totVal)}</b>`;
+  const parts=(STATE.meta?STATE.meta.caves:[]).map(cave=>{
+    let b=0, val=0; const s=new Set();
+    for(const w of STATE.wines) for(const l of w.lots) if(l.cave===cave){ b+=(+l.quantite||0); if(l.prix!=null) val+=(+l.prix)*(+l.quantite||0); s.add(w.id); }
+    return `${esc(cave)} <span class="n">${b}</span> (${s.size}) · <span class="n">${eur(val)}</span>`;
+  });
+  $("#summary-caves").innerHTML=parts.join("&nbsp;·&nbsp;")+'&nbsp;<span class="subtle">— (vins uniques)</span>';
+}
+
+/* ---- filter + sort + render ---- */
+function visible(){
+  const q=STATE.search.trim().toLowerCase();
+  let list=STATE.wines.filter(w=>{
+    if(STATE.stockOnly&&!q&&w.total_quantite===0) return false;
+    if(STATE.couleurs.size&&!STATE.couleurs.has(w.couleur)) return false;
+    if(STATE.statuts.size&&!STATE.statuts.has(w.maturite.status)) return false;
+    if(STATE.caves.size){ const cs=(w.caves||"").split(","); if(!cs.some(c=>STATE.caves.has(c))) return false; }
+    if(STATE.appellations.size&&!STATE.appellations.has(w.appellation)) return false;
+    if(STATE.pays.size&&!STATE.pays.has(w.pays)) return false;
+    if(STATE.regions.size&&!STATE.regions.has(w.region)) return false;
+    if(STATE.sous_regions.size&&!STATE.sous_regions.has(w.sous_region)) return false;
+    if(STATE.millesimes.size&&!STATE.millesimes.has(w.millesime)) return false;
+    if(STATE.capacites.size&&!STATE.capacites.has(w.capacite_l)) return false;
+    if(q){ const hay=[w.nom,w.producteur,w.couleur,w.appellation,w.sous_region,w.region,w.pays,w.millesime,w.recompenses,w.remarques,
+        ...(w.lots||[]).flatMap(l=>[l.cave,l.emplacement,l.fournisseur,l.commentaire,l.date_entree])].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  const byName=(a,b)=>a.nom.localeCompare(b.nom,"fr");
+  const noStock=w=>w.total_quantite>0?0:1, urg=w=>w.maturite.urgency==null?-1e9:w.maturite.urgency;
+  if(STATE.sort==="nom") list.sort(byName);
+  else if(STATE.sort==="vieux") list.sort((a,b)=>(a.millesime||9999)-(b.millesime||9999)||byName(a,b));
+  else if(STATE.sort==="stock") list.sort((a,b)=>noStock(a)-noStock(b)||a.total_quantite-b.total_quantite||byName(a,b));
+  else list.sort((a,b)=>noStock(a)-noStock(b)||urg(b)-urg(a)||byName(a,b));
+  return list;
+}
+function render(){
+  const list=visible(), box=$("#list"); box.replaceChildren();
+  $("#count").textContent=plural(list.length,"vin");
+  $("#sort-btn").innerHTML=svg("sort",18)+" Trier : <b>"+SORTS.find(s=>s[0]===STATE.sort)[1]+"</b>";
+  updateFilterButtons();
+  if(!list.length){
+    const e=el("div","empty"); e.append(el("div",null,"Aucun vin ne correspond."));
+    if(STATE.search||!STATE.stockOnly||FILTER_GROUPS.some(g=>STATE[g].size)){
+      const b=el("button","btn btn--sm","Réinitialiser"); b.style.marginTop="var(--space-4)"; b.addEventListener("click",resetAll); e.append(b);
+    }
+    box.append(e); return;
+  }
+  for(const w of list) box.append(wineRow(w));
+}
+function wineRow(w){
+  const row=el("button","row"); row.type="button";
+  const dot=el("span","dot-lg"); dot.style.background=hue(w.couleur);
+  const main=el("div"); main.style.minWidth="0";
+  main.append(el("div","wine-nom",w.nom));
+  main.append(el("div","wine-sub",[w.millesime,w.appellation||w.sous_region||w.region,w.caves?w.caves.split(",").join(" · "):null].filter(Boolean).join(" · ")||"—"));
+  const right=el("div","wine-right");
+  const q=el("div","qte"+(w.total_quantite?"":" zero")); q.append(document.createTextNode(String(w.total_quantite)),el("small",null," btl"));
+  right.append(q,pill(w.maturite));
+  row.append(dot,main,right); row.addEventListener("click",()=>openDetail(w.id));
+  return row;
+}
+
+/* ---- sheets infra ---- */
+let sheetTrigger=null;
+function openSheet(bd){ sheetTrigger=document.activeElement; bd.classList.add("open"); }
+function closeSheet(bd){ if(!bd.classList.contains("open")) return; bd.classList.remove("open"); if(sheetTrigger&&sheetTrigger.focus){ try{ sheetTrigger.focus() }catch(e){} } }
+["detail-bd","form-bd","sort-bd","install-bd"].forEach(id=>{ const bd=$("#"+id); bd.addEventListener("click",e=>{ if(e.target===bd) closeSheet(bd); }); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ document.querySelectorAll(".backdrop.open").forEach(closeSheet); closeDD(); } });
+function headHTML(title){ return `<div class="grip"></div><div class="sheet__head"><h2 class="sheet__title">${esc(title)}</h2><button class="iconbtn sclose" aria-label="Fermer"></button></div>`; }
+function wireClose(sheet,bd){ const b=sheet.querySelector(".sclose"); if(b){ b.innerHTML=svg("close",22); b.addEventListener("click",()=>closeSheet(bd)); } }
+
+// Keep Tab focus inside the topmost open sheet (a11y).
+function focusablesIn(root){ return [...root.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter(e=>!e.disabled && e.offsetParent!==null); }
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Tab") return;
+  const bd=[...document.querySelectorAll(".backdrop.open")].pop(); if(!bd) return;
+  const f=focusablesIn(bd.querySelector(".sheet")); if(!f.length) return;
+  const first=f[0], last=f[f.length-1];
+  if(!bd.contains(document.activeElement)){ e.preventDefault(); first.focus(); }
+  else if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+});
+
+// In-app confirmation (replaces window.confirm).
+function confirmDialog(title,message,confirmLabel,danger){
+  return new Promise(resolve=>{
+    const bd=$("#confirm-bd"), s=$("#confirm-sheet");
+    s.innerHTML=`<div class="grip"></div><h2 class="sheet__title">${esc(title)}</h2><p class="muted">${esc(message)}</p>
+      <div class="sheet-foot"><button class="btn" id="cf-cancel">Annuler</button><button class="btn btn--primary" id="cf-ok">${esc(confirmLabel)}</button></div>`;
+    const ok=s.querySelector("#cf-ok");
+    if(danger){ ok.style.background="var(--st-late-fg)"; ok.style.borderColor="var(--st-late-fg)"; ok.style.color="#fff"; }
+    let onBd, onKey;
+    const done=v=>{ bd.removeEventListener("click",onBd); document.removeEventListener("keydown",onKey); closeSheet(bd); resolve(v); };
+    onBd=e=>{ if(e.target===bd) done(false); };
+    onKey=e=>{ if(e.key==="Escape"){ e.stopPropagation(); done(false); } };
+    bd.addEventListener("click",onBd); document.addEventListener("keydown",onKey);
+    ok.addEventListener("click",()=>done(true)); s.querySelector("#cf-cancel").addEventListener("click",()=>done(false));
+    openSheet(bd); ok.focus();
+  });
+}
+
+/* ---- inline filter dropdowns (Maturité / Couleur / Cave) ---- */
+const GROUP_LABEL={statuts:"Maturité",couleurs:"Couleur",caves:"Cave",appellations:"Appellation",pays:"Pays",regions:"Région",sous_regions:"Sous-région",millesimes:"Millésime",capacites:"Capacité"};
+// Geography hierarchy (coarse -> fine). Filters cascade: each level's options are
+// limited to wines matching the selections in the levels above it.
+const GEO=[{group:"pays",field:"pays"},{group:"regions",field:"region"},{group:"sous_regions",field:"sous_region"},{group:"appellations",field:"appellation"}];
+const byFr=(a,b)=>String(a).localeCompare(String(b),"fr");
+function geoOptions(i){
+  let pool=STATE.wines;
+  for(let k=0;k<i;k++){ const g=GEO[k]; if(STATE[g.group].size) pool=pool.filter(w=>STATE[g.group].has(w[g.field])); }
+  const f=GEO[i].field;
+  return [...new Set(pool.map(w=>w[f]).filter(v=>v!=null&&v!==""))].sort(byFr);
+}
+function fillDDPanel(dd,group,opts){
+  const panel=dd.querySelector(".dd-panel");
+  panel.replaceChildren(); panel.onclick=e=>e.stopPropagation();
+  for(const [v,l] of opts){
+    const lab=el("label"), cb=el("input"); cb.type="checkbox"; cb.checked=STATE[group].has(v); lab.append(cb);
+    if(group==="couleurs"){ const sw=el("span","swatch"); sw.style.background=hue(v); lab.append(sw); }
+    lab.append(document.createTextNode(l));
+    cb.addEventListener("change",()=>{ cb.checked?STATE[group].add(v):STATE[group].delete(v);
+      const gi=GEO.findIndex(g=>g.group===group); if(gi>=0) refreshGeo(gi); render(); });
+    panel.append(lab);
+  }
+}
+// A geo selection changed -> rebuild the finer levels below it, dropping now-invalid picks.
+function refreshGeo(fromIndex){
+  for(let j=fromIndex+1;j<GEO.length;j++){
+    const g=GEO[j], opts=geoOptions(j), valid=new Set(opts);
+    for(const v of [...STATE[g.group]]) if(!valid.has(v)) STATE[g.group].delete(v);
+    const dd=document.querySelector(`#filterbar .dd[data-group="${g.group}"]`);
+    if(dd) fillDDPanel(dd,g.group,opts.map(v=>[v,v]));
+  }
+}
+function buildFilters(){
+  const present=new Set(STATE.wines.map(w=>w.couleur).filter(Boolean));
+  const uniq=f=>[...new Set(STATE.wines.map(f).filter(v=>v!=null&&v!==""))];
+  const staticOpts={
+    statuts:STATUTS,
+    couleurs:STATE.meta.colors.filter(c=>present.has(c)).map(c=>[c,c]),
+    caves:STATE.meta.caves.map(c=>[c,c]),
+    millesimes:uniq(w=>w.millesime).sort((a,b)=>b-a).map(v=>[v,String(v)]),
+    capacites:uniq(w=>w.capacite_l).sort((a,b)=>a-b).map(v=>[v,capLabel(v)]),
+  };
+  document.querySelectorAll("#filterbar .dd").forEach(dd=>{
+    const group=dd.dataset.group, gi=GEO.findIndex(g=>g.group===group);
+    fillDDPanel(dd,group, gi>=0 ? geoOptions(gi).map(v=>[v,v]) : staticOpts[group]);
+    const btn=dd.querySelector(".dd-btn"); btn.setAttribute("aria-haspopup","true"); btn.setAttribute("aria-expanded","false");
+    btn.addEventListener("click",e=>{ e.stopPropagation(); const wasOpen=dd.classList.contains("open"); closeDD();
+      if(!wasOpen){ dd.classList.add("open"); btn.setAttribute("aria-expanded","true"); positionDD(dd); } });
+  });
+}
+// Filter panels render as fixed popovers (positioned to their button, clamped to the
+// viewport) so the horizontally-scrolling filter bar can't clip them.
+function positionDD(dd){
+  const btn=dd.querySelector(".dd-btn"), panel=dd.querySelector(".dd-panel"), r=btn.getBoundingClientRect();
+  panel.style.position="fixed"; panel.style.top=(r.bottom+6)+"px";
+  const w=panel.offsetWidth; let left=r.left; if(left+w>innerWidth-8) left=innerWidth-8-w; if(left<8) left=8;
+  panel.style.left=left+"px"; panel.style.right="auto";
+}
+function closeDD(){ document.querySelectorAll("#filterbar .dd.open").forEach(d=>{ d.classList.remove("open"); d.querySelector(".dd-btn").setAttribute("aria-expanded","false"); }); }
+document.addEventListener("click",closeDD);
+$("#filterbar").addEventListener("scroll",closeDD,{passive:true});
+addEventListener("resize",closeDD);
+function updateFilterButtons(){
+  let dirty=!STATE.stockOnly;
+  document.querySelectorAll("#filterbar .dd").forEach(dd=>{
+    const group=dd.dataset.group, n=STATE[group].size, btn=dd.querySelector(".dd-btn");
+    btn.replaceChildren(document.createTextNode(GROUP_LABEL[group]));
+    const ch=el("span","chev"); ch.innerHTML=svg("chevron",18); btn.append(ch);
+    if(n){ btn.append(el("span","cnt",String(n))); dirty=true; }  // absolute badge → no layout shift, no extra width
+    btn.classList.toggle("active",n>0);
+  });
+  $("#reset-filters").classList.toggle("off",!dirty);
+}
+function resetFilters(){ for(const g of FILTER_GROUPS) STATE[g].clear(); STATE.stockOnly=true;
+  $("#stockonly").checked=true; document.querySelectorAll("#filterbar input[type=checkbox]").forEach(cb=>cb.checked=false); refreshGeo(-1); }
+function resetAll(){ resetFilters(); $("#search").value=""; STATE.search=""; $("#search-clear").hidden=true; render(); }
+$("#reset-filters").addEventListener("click",()=>{ resetFilters(); render(); });
+$("#stockonly").addEventListener("change",e=>{ STATE.stockOnly=e.target.checked; render(); });
+
+/* ---- sort sheet ---- */
+$("#sort-btn").addEventListener("click",openSort);
+function openSort(){
+  const s=$("#sort-sheet"), bd=$("#sort-bd");
+  s.innerHTML=headHTML("Trier")+`<div class="stack" id="sort-list"></div>`;
+  wireClose(s,bd);
+  const list=s.querySelector("#sort-list");
+  SORTS.forEach(([v,l])=>{ const o=el("button","sort-opt",l); o.setAttribute("aria-selected",STATE.sort===v);
+    if(STATE.sort===v) o.innerHTML=esc(l)+svg("check",20);
+    o.addEventListener("click",()=>{ STATE.sort=v; closeSheet(bd); render(); }); list.append(o); });
+  openSheet(bd); s.scrollTop=0;
+}
+
+/* ---- detail ---- */
+const detailBd=$("#detail-bd"), detailSheet=$("#detail-sheet");
+function openDetail(id){ const w=findWine(id); if(!w)return; openSheet(detailBd); renderDetail(w); detailSheet.scrollTop=0; }
+function refresh(w){ renderStats(); render(); if(detailBd.classList.contains("open")&&detailSheet.dataset.id===w.id) renderDetail(w); }
+function renderDetail(w){
+  const s=detailSheet; s.replaceChildren(); s.dataset.id=w.id;
+  s.append(el("div","grip"));
+  const head=el("div","sheet__head");
+  const dot=el("span","dot-lg"); dot.style.background=hue(w.couleur); dot.style.marginTop=".45rem";
+  const htxt=el("div"); htxt.style.flex="1";
+  htxt.append(el("h2","sheet__title",w.nom));
+  htxt.append(el("div","detail-sub",[w.producteur,w.millesime,w.couleur,w.capacite_l?capLabel(w.capacite_l):null].filter(Boolean).join(" · ")));
+  const close=el("button","iconbtn sclose"); close.innerHTML=svg("close",22); close.setAttribute("aria-label","Fermer"); close.addEventListener("click",()=>closeSheet(detailBd));
+  head.append(dot,htxt,close); s.append(head);
+  // origin
+  const origin=el("p","origin"); const parts=[w.appellation,w.sous_region,w.region,w.pays].filter(Boolean);
+  if(parts.length){ origin.append(document.createTextNode("Origine : ")); origin.append(el("b",null,parts[0])); if(parts.length>1) origin.append(document.createTextNode(" — "+parts.slice(1).join(", "))); }
+  else origin.textContent="Origine à préciser";
+  s.append(origin);
+  // maturité
+  const mc=el("div","card mat-card"); const top=el("div","top"); top.append(pill(w.maturite));
+  const setBtn=el("button","set",w.maturite.estimated||w.maturite.status==="inconnu"?"préciser la fenêtre":"modifier"); setBtn.addEventListener("click",()=>openForm(w));
+  top.append(setBtn); mc.append(top,el("p",null,matText(w.maturite))); s.append(mc);
+  // stock
+  s.append(el("div","label section-label","En cave — "+plural(w.total_quantite,"bouteille")));
+  if(!w.lots.length) s.append(el("p","lot-meta","Aucune bouteille en stock (catalogue)."));
+  for(const lot of w.lots) s.append(lotRow(w,lot));
+  const addLotBtn=el("button","btn btn--ghost btn--block"); addLotBtn.innerHTML=svg("add",18)+"<span>Ajouter des bouteilles ici</span>"; addLotBtn.style.marginTop=".8rem";
+  addLotBtn.addEventListener("click",()=>toggleAddLot(w)); s.append(addLotBtn);
+  const holder=el("div"); holder.id="addlot-holder"; s.append(holder);
+  if(w.recompenses||w.remarques){ s.append(el("div","label section-label","Notes"));
+    if(w.recompenses){ const rc=el("p","lot-meta"); rc.innerHTML=svg("trophy",16)+" "+esc(w.recompenses); s.append(rc); }
+    if(w.remarques) s.append(el("p","lot-meta",w.remarques)); }
+  const foot=el("div","sheet-foot"); const edit=el("button","btn btn--block"); edit.innerHTML=svg("edit",18)+"<span>Modifier la fiche</span>"; edit.addEventListener("click",()=>openForm(w)); foot.append(edit); s.append(foot);
+}
+function capLabel(v){ const f=CAPS.find(c=>c[0]===v); return f?f[1].split(" · ")[1]:v+" L"; }
+function lotRow(w,lot){
+  const row=el("div","lot"), info=el("div"); info.style.flex="1"; info.style.minWidth="0";
+  const where=lot.emplacement==="Vrac"?`${lot.cave||"?"} · Vrac`:`${lot.cave||"?"} · ${lot.emplacement||"Étagère"}${lot.ligne?` L${lot.ligne}`:""}${lot.colonne?`·C${lot.colonne}`:""}`;
+  info.append(el("div","lot-where",where));
+  const fmtDate=d=>{ if(!d)return null; const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d)); return m?`${m[3]}/${m[2]}/${m[1]}`:d; };
+  const meta=[lot.prix!=null?`${(+lot.prix).toFixed(2)} €`:null,lot.fournisseur,fmtDate(lot.date_entree)&&"entré le "+fmtDate(lot.date_entree)].filter(Boolean).join(" · ");
+  if(meta) info.append(el("div","lot-meta",meta));
+  if(lot.commentaire) info.append(el("div","lot-meta",lot.commentaire));
+  const qte=el("div","lot-qte num",String(lot.quantite));
+  const drink=el("button","btn btn--sm"); drink.innerHTML=svg("wine",16)+"<span>Boire</span>"; drink.addEventListener("click",()=>drinkOne(w,lot));
+  row.append(info,qte,drink); return row;
+}
+
+/* ---- writes (optimistic + offline queue) ---- */
+function saveQueue(){ try{localStorage.setItem("cave-queue",JSON.stringify(QUEUE))}catch(e){} updateNet(); }
+async function writeApi(url,method,body){
+  if(navigator.onLine){
+    try{ const r=await fetch(url,{method,headers:body?{"content-type":"application/json"}:undefined,body:body?JSON.stringify(body):undefined});
+      if(!r.ok){ const t=await r.text(); throw Object.assign(new Error(t),{server:true}); }
+      return await r.json().catch(()=>({})); }
+    catch(e){ if(e.server) throw e; }
+  }
+  QUEUE.push({url,method,body}); saveQueue(); return {queued:true};
+}
+async function flushQueue(){
+  if(!QUEUE.length||!navigator.onLine) return;
+  while(QUEUE.length){ const op=QUEUE[0];
+    try{ const r=await fetch(op.url,{method:op.method,headers:op.body?{"content-type":"application/json"}:undefined,body:op.body?JSON.stringify(op.body):undefined});
+      if(!r.ok) throw new Error(); QUEUE.shift(); saveQueue(); }catch(e){ return; } }
+  await load(true); toast("Synchronisé");
+}
+/* Reconcile an optimistic write with the server's response (or the offline queue). */
+function afterWrite(res,id,okMsg,queueMsg){
+  if(res&&res.wine){ replaceWine(res.wine); refresh(findWine(id)); if(okMsg)toast(okMsg); return res.wine; }
+  if(res&&res.queued&&queueMsg) toast(queueMsg);
+  return null;
+}
+async function drinkOne(w,lot){
+  const lotId=lot.id;
+  if(lot.quantite<=1) w.lots=w.lots.filter(l=>l.id!==lotId); else lot.quantite--;
+  normalize(w); refresh(w);
+  const res=await writeApi(`/api/lots/${encodeURIComponent(lotId)}/drink`,"POST");
+  if(res&&res.wine){ replaceWine(res.wine); refresh(findWine(w.id)); toast("Santé 🍷","Annuler",()=>undrink(w.id,lotId)); }
+  else if(res&&res.queued){ toast("Bu — à synchroniser"); }
+}
+async function undrink(wineId,lotId){
+  const res=await writeApi(`/api/lots/${encodeURIComponent(lotId)}/undrink`,"POST");
+  afterWrite(res,wineId,"Bouteille remise",null);
+}
+function toggleAddLot(w){
+  const holder=$("#addlot-holder"); if(holder.firstChild){ holder.replaceChildren(); return; }
+  const f=document.createElement("form"); f.className="form-section"; f.style.marginTop=".6rem";
+  f.innerHTML=`<div class="row2">
+      <div class="field"><label>Cave</label><select name="cave">${caveOpts(STATE.defaultCave)}</select></div>
+      <div class="field"><label>Emplacement</label><select name="emplacement"><option>Étagère</option><option>Vrac</option></select></div></div>
+    <div class="row3">
+      <div class="field"><label>Ligne</label><input name="ligne" type="number" inputmode="numeric"></div>
+      <div class="field"><label>Colonne</label><input name="colonne" type="number" inputmode="numeric"></div>
+      <div class="field"><label>Quantité</label><input name="quantite" type="number" value="1" min="1" inputmode="numeric"></div></div>
+    <div class="row2">
+      <div class="field"><label>Fournisseur</label><input name="fournisseur" autocomplete="off"></div>
+      <div class="field"><label>Prix unitaire (€)</label><input name="prix" type="number" step="0.01" inputmode="decimal"></div></div>
+    <div class="field"><label>Date d'entrée</label><input name="date_entree" type="date"></div>
+    <div class="field"><label>Commentaires</label><textarea class="input" name="commentaire" rows="2" style="resize:vertical"></textarea></div>
+    <button class="btn btn--primary btn--block" type="submit">Ajouter à la cave</button>`;
+  f.addEventListener("submit",async e=>{ e.preventDefault(); const body=formData(f);
+    const tmp={id:"tmp-"+Math.random().toString(36).slice(2),wine_id:w.id,cave:body.cave,emplacement:body.emplacement,ligne:body.ligne,colonne:body.colonne,quantite:+body.quantite||1,prix:body.prix};
+    w.lots.push(tmp); normalize(w); refresh(w); holder.replaceChildren();
+    const res=await writeApi(`/api/wines/${encodeURIComponent(w.id)}/lots`,"POST",body);
+    afterWrite(res,w.id,"Bouteilles ajoutées","Ajouté — à synchroniser"); });
+  holder.append(f); combobox(f.querySelector('[name="fournisseur"]'),fournisseurList); f.querySelector("select").focus();
+}
+
+/* ---- add / edit form ---- */
+function caveOpts(sel){ return STATE.meta.caves.map(c=>`<option${c===sel?" selected":""}>${esc(c)}</option>`).join(""); }
+function capOpts(sel){ const caps=CAPS.slice(); if(sel!=null&&!caps.some(c=>c[0]===sel)) caps.unshift([sel,sel+" L"]);
+  return caps.map(c=>`<option value="${c[0]}"${c[0]===sel?" selected":""}>${esc(c[1])}</option>`).join(""); }
+function colorOpts(sel){ let list=STATE.meta.colors.slice(); if(sel&&!list.includes(sel)) list=[sel].concat(list);
+  return `<option value=""></option>`+list.map(c=>`<option${c===sel?" selected":""}>${esc(c)}</option>`).join(""); }
+/* Autocomplete combobox: reuses the .dd-panel popover so it's scrollable + well-placed
+   (native <datalist> is inconsistent/unscrollable on mobile). Free text stays allowed. */
+function combobox(input,getItems){
+  if(!input) return;
+  const wrap=input.parentElement; wrap.style.position="relative";
+  const panel=el("div","dd-panel combo-panel"); wrap.append(panel);
+  let opts=[], active=-1;
+  const hide=()=>{ panel.classList.remove("open"); active=-1; };
+  const pick=v=>{ input.value=v; hide(); input.dispatchEvent(new Event("change",{bubbles:true})); };
+  const place=()=>{
+    // Anchor just under the INPUT (not the field bottom) so a trailing hint span
+    // like Appellation's doesn't push the panel down and leave a gap.
+    panel.style.top=(input.offsetTop+input.offsetHeight+4)+"px";
+    panel.style.left="0px"; const fl=input.getBoundingClientRect().left, w=panel.offsetWidth;
+    let vp=fl; if(vp+w>innerWidth-8) vp=innerWidth-8-w; if(vp<8) vp=8; panel.style.left=(vp-fl)+"px"; };
+  const render=()=>{
+    const q=input.value.trim().toLowerCase(), all=(getItems()||[]).map(String);
+    opts=(q?all.filter(v=>v.toLowerCase().includes(q)):all).slice(0,80);
+    panel.replaceChildren();
+    opts.forEach(v=>{ const o=el("button","combo-opt",v); o.type="button"; o.tabIndex=-1;
+      o.addEventListener("pointerdown",e=>{ e.preventDefault(); pick(v); }); panel.append(o); });
+    active=-1; const open=opts.length>0; panel.classList.toggle("open",open); if(open) place();
+  };
+  const move=d=>{ if(!opts.length)return; const k=[...panel.children];
+    if(active>=0)k[active].classList.remove("active");
+    active=(active+d+opts.length)%opts.length; k[active].classList.add("active"); k[active].scrollIntoView({block:"nearest"}); };
+  input.setAttribute("autocomplete","off");
+  // Open on an explicit tap/click (NOT focus) so programmatic focus never pops a dropdown
+  // that would cover the fields below it. Typing and ArrowDown also open it.
+  input.addEventListener("click",render);
+  input.addEventListener("input",render);
+  input.addEventListener("keydown",e=>{
+    const open=panel.classList.contains("open");
+    if(e.key==="ArrowDown"){ e.preventDefault(); open?move(1):render(); }
+    else if(e.key==="ArrowUp"&&open){ e.preventDefault(); move(-1); }
+    else if(e.key==="Enter"&&open&&active>=0){ e.preventDefault(); pick(opts[active]); }
+    else if(e.key==="Escape"&&open){ e.stopPropagation(); hide(); }
+  });
+  input.addEventListener("blur",()=>setTimeout(hide,150));
+}
+function producteurList(){ return [...new Set(STATE.wines.map(w=>w.producteur).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr")); }
+function fournisseurList(){ return [...new Set(STATE.wines.flatMap(w=>(w.lots||[]).map(l=>l.fournisseur)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr")); }
+$("#add").addEventListener("click",()=>openForm(null));
+function openForm(wine){
+  const edit=!!wine, w=wine||{}, bd=$("#form-bd"), s=$("#form-sheet");
+  const apps=[...new Set(STATE.meta.appellations.map(a=>a.appellation||a.sous_region).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+  const names=[...new Set(STATE.wines.map(x=>x.nom).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+  s.innerHTML=headHTML(edit?"Modifier le vin":"Ajouter un vin")+`
+    <form id="wine-form">
+      <div class="field"><label>Nom du vin *</label>
+        <input name="nom" required autocomplete="off" value="${esc(w.nom)}"></div>
+      <div class="row2">
+        <div class="field"><label>Couleur</label><select name="couleur">${colorOpts(edit?w.couleur:"Rouge")}</select></div>
+        <div class="field"><label>Millésime</label><input name="millesime" type="number" inputmode="numeric" placeholder="2020" value="${w.millesime!=null?w.millesime:""}"></div></div>
+      <div class="row2">
+        <div class="field"><label>Producteur</label><input name="producteur" autocomplete="off" value="${esc(w.producteur)}"></div>
+        <div class="field"><label>Capacité</label><select name="capacite_l">${capOpts(edit?w.capacite_l:0.75)}</select></div></div>
+      <div class="field"><label>Appellation</label>
+        <input name="appellation" autocomplete="off" placeholder="ex. Margaux, Chablis…" value="${esc(w.appellation)}">
+        <span class="hint" id="geo-hint"></span></div>
+      <div class="row3">
+        <div class="field"><label>Sous-région</label><input name="sous_region" autocomplete="off" value="${esc(w.sous_region)}"></div>
+        <div class="field"><label>Région</label><input name="region" autocomplete="off" value="${esc(w.region)}"></div>
+        <div class="field"><label>Pays</label><input name="pays" autocomplete="off" value="${esc(w.pays)}"></div></div>
+      <div class="field"><label>Récompense</label><input name="recompenses" autocomplete="off" placeholder="ex. Médaille d'or Concours de Bordeaux 2019" value="${esc(w.recompenses)}"></div>
+      <details class="adv"${(w.apogee_min!=null||w.apogee_max!=null||w.remarques)?" open":""}><summary>Fenêtre de garde & notes</summary>
+        <div class="row2" style="margin-top:.5rem">
+          <div class="field"><label>Garde min (ans)</label><input name="apogee_min" type="number" inputmode="numeric" placeholder="5" value="${w.apogee_min!=null?w.apogee_min:""}"></div>
+          <div class="field"><label>Garde max (ans)</label><input name="apogee_max" type="number" inputmode="numeric" placeholder="20" value="${w.apogee_max!=null?w.apogee_max:""}"></div></div>
+        <div class="hint muted" style="color:var(--text-subtle)">Années après le millésime. Vide = estimation par couleur.</div>
+        <div class="field" style="margin-top:.5rem"><label>Remarques</label><input name="remarques" autocomplete="off" value="${esc(w.remarques)}"></div>
+      </details>
+      ${edit?"":`<div class="form-section"><h4>Bouteilles (optionnel)</h4>
+        <div class="row2"><div class="field"><label>Cave</label><select name="cave"><option value=""></option>${caveOpts(STATE.defaultCave)}</select></div>
+          <div class="field"><label>Quantité</label><input name="quantite" type="number" min="0" value="1" inputmode="numeric"></div></div>
+        <div class="row3"><div class="field"><label>Emplacement</label><select name="emplacement"><option>Étagère</option><option>Vrac</option></select></div>
+          <div class="field"><label>Ligne</label><input name="ligne" type="number" inputmode="numeric"></div>
+          <div class="field"><label>Colonne</label><input name="colonne" type="number" inputmode="numeric"></div></div>
+        <div class="row2"><div class="field"><label>Fournisseur</label><input name="fournisseur" autocomplete="off"></div>
+          <div class="field"><label>Prix unitaire (€)</label><input name="prix" type="number" step="0.01" inputmode="decimal"></div></div>
+        <div class="field"><label>Date d'entrée</label><input name="date_entree" type="date"></div>
+        <div class="field"><label>Commentaires</label><textarea class="input" name="commentaire" rows="2" style="resize:vertical"></textarea></div></div>`}
+      <button class="btn btn--primary btn--block" type="submit">${edit?"Enregistrer":"Ajouter à la cave"}</button>
+      ${edit?'<button type="button" class="btn--danger" id="del-wine">Supprimer ce vin</button>':""}
+    </form>`;
+  wireClose(s,bd);
+  const appInput=s.querySelector('[name="appellation"]'); appInput.addEventListener("change",()=>autoGeo(appInput.value));
+  const nomInput=s.querySelector('[name="nom"]'); nomInput.addEventListener("change",()=>fillFromWine(nomInput.value));
+  combobox(nomInput,()=>names);
+  combobox(appInput,()=>apps);
+  combobox(s.querySelector('[name="producteur"]'),producteurList);
+  combobox(s.querySelector('[name="sous_region"]'),()=>STATE.meta.sous_regions);
+  combobox(s.querySelector('[name="region"]'),()=>STATE.meta.regions);
+  combobox(s.querySelector('[name="pays"]'),()=>STATE.meta.pays);
+  combobox(s.querySelector('[name="millesime"]'),()=>STATE.meta.millesimes);
+  combobox(s.querySelector('[name="fournisseur"]'),fournisseurList);
+  s.querySelector("#wine-form").addEventListener("submit",e=>submitForm(e,edit?w.id:null));
+  if(edit){ const d=s.querySelector("#del-wine"); if(d) d.addEventListener("click",()=>deleteWine(w)); }
+  openSheet(bd); s.scrollTop=0;
+}
+async function autoGeo(term){
+  const hint=$("#geo-hint"); if(!term.trim()){ hint.textContent=""; return; }
+  try{ const g=await(await fetch("/api/geo/resolve?q="+encodeURIComponent(term))).json(); const f=$("#form-sheet").querySelector("#wine-form");
+    if(g&&(g.region||g.pays||g.sous_region)){ if(g.sous_region)f.sous_region.value=g.sous_region; if(g.region)f.region.value=g.region; if(g.pays)f.pays.value=g.pays;
+      hint.textContent="↳ "+[g.sous_region,g.region,g.pays].filter(Boolean).join(" · ")+" (déduit)"; }
+    else hint.textContent="Nouvelle appellation — ajoutée au dictionnaire."; }catch(e){ hint.textContent=""; }
+}
+// Picking a known wine name pre-fills the whole fiche from that wine (always overwrites).
+function fillFromWine(nom){
+  const wm=STATE.wines.find(x=>x.nom===nom); if(!wm) return;
+  const f=$("#form-sheet").querySelector("#wine-form"); if(!f) return;
+  const set=(n,v)=>{ const el=f.elements[n]; if(!el) return; const val=v==null?"":String(v);
+    if(el.tagName==="SELECT"&&val&&![...el.options].some(o=>o.value===val)) el.add(new Option(val,val));
+    el.value=val; };
+  set("couleur",wm.couleur); set("millesime",wm.millesime); set("producteur",wm.producteur); set("capacite_l",wm.capacite_l);
+  set("appellation",wm.appellation); set("sous_region",wm.sous_region); set("region",wm.region); set("pays",wm.pays);
+  set("recompenses",wm.recompenses); set("remarques",wm.remarques); set("apogee_min",wm.apogee_min); set("apogee_max",wm.apogee_max);
+  const det=f.querySelector("details.adv"); if(det&&(wm.apogee_min!=null||wm.remarques)) det.open=true;
+  const hint=$("#geo-hint"); if(hint) hint.textContent="↳ vin connu — fiche pré-remplie";
+}
+function formData(f){ return Object.fromEntries(new FormData(f).entries()); }
+function num(v){ return v===""||v==null?null:Number(v); }
+async function submitForm(e,editId){
+  e.preventDefault(); const f=e.target, body=formData(f), btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="…";
+  if(editId){ const w=findWine(editId);
+    Object.assign(w,{nom:body.nom,couleur:body.couleur,millesime:num(body.millesime),producteur:body.producteur,capacite_l:num(body.capacite_l),
+      appellation:body.appellation,sous_region:body.sous_region,region:body.region,pays:body.pays,apogee_min:num(body.apogee_min),apogee_max:num(body.apogee_max),recompenses:body.recompenses,remarques:body.remarques});
+    normalize(w); refresh(w); closeSheet($("#form-bd"));
+    const res=await writeApi(`/api/wines/${encodeURIComponent(editId)}`,"PATCH",body);
+    afterWrite(res,editId,"Enregistré","Enregistré — à synchroniser"); return; }
+  const res=await writeApi("/api/wines","POST",body); closeSheet($("#form-bd"));
+  if(res&&res.wine){ replaceWine(res.wine); const id=res.wine.id;
+    if(+body.quantite>0&&body.cave){ const r2=await writeApi(`/api/wines/${encodeURIComponent(id)}/lots`,"POST",{cave:body.cave,emplacement:body.emplacement,ligne:body.ligne,colonne:body.colonne,quantite:body.quantite,prix:body.prix,fournisseur:body.fournisseur,date_entree:body.date_entree,commentaire:body.commentaire}); if(r2&&r2.wine) replaceWine(r2.wine); }
+    renderStats(); render(); toast("Vin ajouté"); openDetail(id);
+  } else if(res&&res.queued){ toast("Ajouté — à synchroniser"); load(true); }
+}
+async function deleteWine(w){
+  if(!(await confirmDialog("Supprimer ce vin ?",`« ${w.nom} » et toutes ses bouteilles seront retirés de la cave.`,"Supprimer",true))) return;
+  STATE.wines=STATE.wines.filter(x=>x.id!==w.id); closeSheet($("#form-bd")); closeSheet(detailBd); renderStats(); render();
+  await writeApi(`/api/wines/${encodeURIComponent(w.id)}`,"DELETE"); toast("Supprimé");
+}
+
+/* ---- toast + net ---- */
+let toastT;
+function toast(m,actionLabel,actionFn){
+  const t=$("#toast"); t.replaceChildren(document.createTextNode(m));
+  if(actionLabel){ const b=el("button","toast-action",actionLabel); b.addEventListener("click",()=>{ t.classList.remove("show"); actionFn&&actionFn(); }); t.append(b); }
+  t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"), actionLabel?5000:2200);
+}
+function updateNet(){ const off=!navigator.onLine; $("#net").classList.toggle("off",off); $("#net").title=off?"Hors ligne":"En ligne";
+  const bar=$("#offline-bar"), n=QUEUE.length;
+  if(off||n){ bar.classList.add("show"); bar.textContent=off?(n?`Hors ligne · ${n} en attente`:"Hors ligne"):`${n} modification(s) à synchroniser`; } else bar.classList.remove("show"); }
+window.addEventListener("online",()=>{ updateNet(); flushQueue(); });
+window.addEventListener("offline",updateNet);
+$("#search-clear").innerHTML=svg("close",18);
+$("#search").addEventListener("input",e=>{ STATE.search=e.target.value; $("#search-clear").hidden=!e.target.value; render(); });
+$("#search-clear").addEventListener("click",()=>{ $("#search").value=""; STATE.search=""; $("#search-clear").hidden=true; $("#search").focus(); render(); });
+
+/* ---- PWA install ---- */
+let deferredPrompt=null; const installBtn=$("#install");
+installBtn.innerHTML=svg("download",18)+"<span>Installer</span>";
+const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+if(!standalone) installBtn.hidden=false;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; if(!standalone) installBtn.hidden=false; });
+installBtn.addEventListener("click",async()=>{
+  if(deferredPrompt){ deferredPrompt.prompt(); const {outcome}=await deferredPrompt.userChoice; deferredPrompt=null; if(outcome==="accepted"){ installBtn.hidden=true; return; } }
+  openInstallHelp();
+});
+window.addEventListener("appinstalled",()=>{ installBtn.hidden=true; closeSheet($("#install-bd")); toast("Installé ✓"); });
+function openInstallHelp(){
+  const bd=$("#install-bd"), s=$("#install-sheet"); let steps, note="";
+  if(BROWSER==="samsung"){ steps=[`Ouvrez le menu ${svg("menu",18)} (les trois traits) en bas à droite de Samsung Internet.`,`Touchez <b>Ajouter la page à</b> (« Add page to »).`,`Touchez <b>Écran d'accueil</b> (« Home screen »).`,`Touchez <b>Ajouter</b> — Cave s'installe comme une application.`];
+    note="Aucun navigateur ne peut lancer l'installation tout seul sur Samsung Internet : c'est toujours cette action du menu."; }
+  else if(BROWSER==="ios") steps=[`Touchez <b>Partager</b> ${svg("ios_share",18)} en bas de Safari.`,`Faites défiler et touchez <b>Sur l'écran d'accueil</b>.`,`Touchez <b>Ajouter</b>.`];
+  else if(BROWSER==="firefox") steps=[`Ouvrez le menu ⋮ de Firefox.`,`Touchez <b>Installer</b> / <b>Ajouter à l'écran d'accueil</b>.`,`Confirmez.`];
+  else steps=[`Ouvrez le menu ⋮ en haut à droite.`,`Touchez <b>Installer l'application</b> (ou <b>Ajouter à l'écran d'accueil</b>).`,`Confirmez.`];
+  s.innerHTML=headHTML("Installer Cave")+`<p class="origin" style="margin:.2rem 0 0">Ajoutez Cave à votre écran d'accueil : plein écran, avec l'icône, et utilisable même sans connexion.</p>
+    <ol class="steps">${steps.map(x=>`<li><span>${x}</span></li>`).join("")}</ol>${note?`<p class="lot-meta">${note}</p>`:""}`;
+  wireClose(s,bd); openSheet(bd); s.scrollTop=0;
+}
+
+function renderSkeleton(){ const box=$("#list"); box.replaceChildren(); for(let i=0;i<6;i++) box.append(el("div","skel-row")); }
+
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+updateNet(); renderSkeleton(); flushQueue(); load();
+</script>
+</body>
+</html>
