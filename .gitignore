@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.dev.vars
+worker-configuration.d.ts
+files.zip
+
+# Personal cellar data — kept out of this public repo
+Cave.accdb
+dev/
+seed/*.sql
+seed/*.csv
