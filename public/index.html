@@ -397,6 +397,7 @@ function wineRow(w){
 // ever ONE pushed entry no matter how many sheets stack, so closing several at once
 // (e.g. deleting a wine) stays balanced.
 let sheetTrigger=null, modalStack=[], sheetBarrier=false, suppressPop=false;
+const sheetOnHide=new WeakMap(); // bd -> callback fired when the sheet is hidden by ANY means (X, backdrop, Escape, Back)
 function armBarrier(){ if(!sheetBarrier){ sheetBarrier=true; try{ history.pushState({caveSheet:true},"") }catch(e){} } }
 function releaseBarrier(){ if(sheetBarrier){ sheetBarrier=false; suppressPop=true; try{ history.back() }catch(e){ suppressPop=false; } } }
 function openSheet(bd){
@@ -409,6 +410,7 @@ function hideSheet(bd){ // visual close only — no history bookkeeping
   bd.classList.remove("open");
   const i=modalStack.lastIndexOf(bd); if(i>=0) modalStack.splice(i,1);
   if(!modalStack.length) document.documentElement.classList.remove("sheet-open");
+  const cb=sheetOnHide.get(bd); if(cb){ sheetOnHide.delete(bd); cb(); } // let a promise-based dialog settle
   if(sheetTrigger&&sheetTrigger.focus){ try{ sheetTrigger.focus() }catch(e){} }
 }
 function closeSheet(bd){ // user-initiated (close button, backdrop, submit, Escape…)
@@ -447,13 +449,39 @@ function confirmDialog(title,message,confirmLabel,danger){
       <div class="sheet-foot"><button class="btn" id="cf-cancel">Annuler</button><button class="btn btn--primary" id="cf-ok">${esc(confirmLabel)}</button></div>`;
     const ok=s.querySelector("#cf-ok");
     if(danger){ ok.style.background="var(--st-late-fg)"; ok.style.borderColor="var(--st-late-fg)"; ok.style.color="#fff"; }
-    let onBd, onKey;
-    const done=v=>{ bd.removeEventListener("click",onBd); document.removeEventListener("keydown",onKey); closeSheet(bd); resolve(v); };
+    let onBd, onKey, settled=false;
+    const done=v=>{ if(settled) return; settled=true; sheetOnHide.delete(bd); bd.removeEventListener("click",onBd); document.removeEventListener("keydown",onKey); resolve(v); closeSheet(bd); };
     onBd=e=>{ if(e.target===bd) done(false); };
     onKey=e=>{ if(e.key==="Escape"){ e.stopPropagation(); done(false); } };
     bd.addEventListener("click",onBd); document.addEventListener("keydown",onKey);
+    sheetOnHide.set(bd,()=>done(false)); // Back button (or any hide) → cancel
     ok.addEventListener("click",()=>done(true)); s.querySelector("#cf-cancel").addEventListener("click",()=>done(false));
     openSheet(bd); ok.focus();
+  });
+}
+
+// A "this one / all of them" chooser (Google-Calendar style), shown when renaming an
+// appellation that other wines share. Resolves 'one' | 'all' | null (cancel / Back).
+function chooseAppellationScope(oldName,others){
+  return new Promise(resolve=>{
+    const bd=$("#confirm-bd"), s=$("#confirm-sheet");
+    s.innerHTML=`<div class="grip"></div><h2 class="sheet__title">Modifier l'appellation</h2>
+      <p class="muted">« ${esc(oldName)} » est aussi utilisée par ${others} autre${others>1?"s":""} vin${others>1?"s":""}. Appliquer le changement à :</p>
+      <div class="sheet-foot" style="flex-direction:column">
+        <button class="btn btn--primary btn--block" id="sc-one">Ce vin seulement</button>
+        <button class="btn btn--block" id="sc-all">Tous les ${others+1} vins</button>
+        <button class="btn btn--ghost btn--block" id="sc-cancel">Annuler</button>
+      </div>`;
+    let onBd, onKey, settled=false;
+    const done=v=>{ if(settled) return; settled=true; sheetOnHide.delete(bd); bd.removeEventListener("click",onBd); document.removeEventListener("keydown",onKey); resolve(v); closeSheet(bd); };
+    onBd=e=>{ if(e.target===bd) done(null); };
+    onKey=e=>{ if(e.key==="Escape"){ e.stopPropagation(); done(null); } };
+    bd.addEventListener("click",onBd); document.addEventListener("keydown",onKey);
+    sheetOnHide.set(bd,()=>done(null)); // Back button (or any hide) → cancel
+    s.querySelector("#sc-one").addEventListener("click",()=>done("one"));
+    s.querySelector("#sc-all").addEventListener("click",()=>done("all"));
+    s.querySelector("#sc-cancel").addEventListener("click",()=>done(null));
+    openSheet(bd); s.querySelector("#sc-one").focus();
   });
 }
 
@@ -790,11 +818,37 @@ function num(v){ return v===""||v==null?null:Number(v); }
 async function submitForm(e,editId){
   e.preventDefault(); const f=e.target, body=formData(f), btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="…";
   if(editId){ const w=findWine(editId);
+    const oldApp=(w.appellation||"").trim(), newApp=(body.appellation||"").trim();
+    // Renaming an appellation other wines share? Ask whether to apply to all (calendar-style).
+    let scope="one";
+    if(oldApp && newApp && oldApp!==newApp){
+      const others=STATE.wines.filter(x=>x.id!==editId && (x.appellation||"").trim()===oldApp).length;
+      if(others>0){
+        const choice=await chooseAppellationScope(oldApp,others);
+        if(choice===null){ btn.disabled=false; btn.textContent="Enregistrer"; return; } // cancelled — keep editing
+        scope=choice;
+      }
+    }
     Object.assign(w,{nom:body.nom,couleur:body.couleur,millesime:num(body.millesime),producteur:body.producteur,capacite_l:num(body.capacite_l),
       appellation:body.appellation,sous_region:body.sous_region,region:body.region,pays:body.pays,apogee_min:num(body.apogee_min),apogee_max:num(body.apogee_max),recompenses:body.recompenses,remarques:body.remarques});
     normalize(w); refresh(w); closeSheet($("#form-bd"));
     const res=await writeApi(`/api/wines/${encodeURIComponent(editId)}`,"PATCH",body);
-    afterWrite(res,editId,"Enregistré","Enregistré — à synchroniser"); return; }
+    afterWrite(res,editId,"Enregistré","Enregistré — à synchroniser");
+    if(scope==="all"){
+      // Optimistically repoint the other wines locally, rename it in the picker, then persist.
+      let n=0;
+      for(const x of STATE.wines){ if(x.id!==editId && (x.appellation||"").trim()===oldApp){
+        x.appellation=newApp;
+        if(body.sous_region) x.sous_region=body.sous_region;
+        if(body.region) x.region=body.region;
+        if(body.pays) x.pays=body.pays;
+        normalize(x); n++; } }
+      STATE.meta.appellations=(STATE.meta.appellations||[]).map(a=>a.appellation===oldApp?{...a,appellation:newApp}:a);
+      renderStats(); render();
+      await writeApi("/api/appellations/rename","POST",{from:oldApp,to:newApp,pays:body.pays,region:body.region,sous_region:body.sous_region});
+      toast(`Appellation appliquée à ${n+1} vins`);
+    }
+    return; }
   const res=await writeApi("/api/wines","POST",body); closeSheet($("#form-bd"));
   if(res&&res.wine){ replaceWine(res.wine); const id=res.wine.id;
     if(+body.quantite>0&&body.cave){ const r2=await writeApi(`/api/wines/${encodeURIComponent(id)}/lots`,"POST",{cave:body.cave,emplacement:body.emplacement,ligne:body.ligne,colonne:body.colonne,quantite:body.quantite,prix:body.prix,fournisseur:body.fournisseur,date_entree:body.date_entree,commentaire:body.commentaire}); if(r2&&r2.wine) replaceWine(r2.wine); }

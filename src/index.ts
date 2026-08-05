@@ -467,6 +467,28 @@ async function readJson(req: Request): Promise<Json> {
   try { return (await req.json()) as Json; } catch { return {}; }
 }
 
+// Rename an appellation across the cellar: repoint every wine still using `from`
+// to `to` (unifying their geography when provided) and rename it in the dictionary
+// so the old spelling drops out of the pickers. Powers the "all wines" choice when
+// editing a wine's appellation. The edited wine is already `to`, so it no longer
+// matches `from` and isn't touched twice.
+async function renameAppellation(env: Env, body: Json): Promise<Response> {
+  const from = str(body.from), to = str(body.to);
+  if (!from || !to) return bad("from and to required");
+  const sr = str(body.sous_region), rg = str(body.region), py = str(body.pays);
+  const ts = now();
+  const r = await env.DB.prepare(
+    `UPDATE wines SET appellation=?2,
+       sous_region=COALESCE(?3,sous_region), region=COALESCE(?4,region), pays=COALESCE(?5,pays),
+       updated_at=?6
+     WHERE appellation=?1 COLLATE NOCASE AND deleted=0`,
+  ).bind(from, to, sr, rg, py, ts).run();
+  await env.DB.prepare(
+    `UPDATE appellations SET appellation=?2 WHERE appellation=?1 COLLATE NOCASE AND deleted=0`,
+  ).bind(from, to).run();
+  return json({ ok: true, updated: r.meta?.changes ?? null });
+}
+
 // Routing table using the platform URLPattern API (not ad-hoc path regexes).
 // Each route names its params via :id groups; the dispatcher decodes them.
 type Ctx = { env: Env; req: Request; url: URL; params: Record<string, string> };
@@ -478,6 +500,7 @@ const ROUTES: Route[] = [
   { method: "POST",   pattern: pat("/api/wines"),            handler: async (c) => addWine(c.env, await readJson(c.req)) },
   { method: "GET",    pattern: pat("/api/meta"),             handler: (c) => meta(c.env) },
   { method: "GET",    pattern: pat("/api/geo/resolve"),      handler: async (c) => json((await resolveGeo(c.env, c.url.searchParams.get("q") ?? "")) ?? {}) },
+  { method: "POST",   pattern: pat("/api/appellations/rename"), handler: async (c) => renameAppellation(c.env, await readJson(c.req)) },
   { method: "GET",    pattern: pat("/api/wines/:id"),        handler: (c) => getWine(c.env, c.params.id) },
   { method: "PATCH",  pattern: pat("/api/wines/:id"),        handler: async (c) => updateWine(c.env, c.params.id, await readJson(c.req)) },
   { method: "DELETE", pattern: pat("/api/wines/:id"),        handler: (c) => deleteWine(c.env, c.params.id) },
