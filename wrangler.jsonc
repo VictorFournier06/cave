@@ -4,9 +4,14 @@
   "main": "src/index.ts",
   "compatibility_date": "2024-11-06",
 
-  // Static frontend in ./public; the Worker handles /api/* (asset-first routing).
+  // Static frontend in ./public. run_worker_first routes EVERY request through the
+  // Worker first, so the login gate (see src/index.ts) covers the static app shell
+  // too — not just /api. The Worker serves the files explicitly via the ASSETS
+  // binding once a request is authenticated.
   "assets": {
-    "directory": "./public"
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
   },
 
   // Serve on workers.dev; no preview hostnames (they'd bypass Access once it's on).

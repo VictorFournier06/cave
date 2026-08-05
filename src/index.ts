@@ -11,6 +11,158 @@ type Json = Record<string, unknown>;
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 const bad = (msg: string, status = 400) => new Response(msg, { status });
 
+// ---- auth: a signed session cookie gates every request -------------------
+// Only the three of us should get in. A single shared password (the AUTH_PASSWORD
+// secret) is exchanged at /login for an HMAC-signed, HttpOnly session cookie; the
+// Worker (run_worker_first) then checks that cookie on every request — static app
+// shell and API alike. No Cloudflare plan, no third party. Rotate access by
+// changing the secret: `wrangler secret put AUTH_PASSWORD` invalidates every
+// existing cookie (the signing key is derived from the password itself).
+const COOKIE = "cave_session";
+const SESSION_TTL = 60 * 60 * 24 * 365; // seconds (~1 year)
+const enc = new TextEncoder();
+
+function b64url(bytes: ArrayBuffer | Uint8Array): string {
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let s = "";
+  for (const b of arr) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function unb64url(s: string): Uint8Array {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  s += "=".repeat((4 - (s.length % 4)) % 4);
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+const hmacKey = (secret: string, use: ("sign" | "verify")[]) =>
+  crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, use);
+
+async function signSession(secret: string, exp: number): Promise<string> {
+  const body = b64url(enc.encode(JSON.stringify({ exp })));
+  const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret, ["sign"]), enc.encode(body));
+  return `${body}.${b64url(sig)}`;
+}
+async function validSession(secret: string, token: string | null): Promise<boolean> {
+  if (!token) return false;
+  const dot = token.indexOf(".");
+  if (dot < 1) return false;
+  const body = token.slice(0, dot);
+  let sig: Uint8Array;
+  try { sig = unb64url(token.slice(dot + 1)); } catch { return false; }
+  const ok = await crypto.subtle.verify("HMAC", await hmacKey(secret, ["verify"]), sig, enc.encode(body));
+  if (!ok) return false;
+  try {
+    const { exp } = JSON.parse(new TextDecoder().decode(unb64url(body)));
+    return typeof exp === "number" && exp > Math.floor(Date.now() / 1000);
+  } catch { return false; }
+}
+// Constant-time compare over fixed-length digests: leaks neither content nor length.
+async function sameSecret(a: string, b: string): Promise<boolean> {
+  const [x, y] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const u = new Uint8Array(x), v = new Uint8Array(y);
+  let diff = 0;
+  for (let i = 0; i < u.length; i++) diff |= u[i] ^ v[i];
+  return diff === 0;
+}
+function cookie(req: Request, name: string): string | null {
+  const raw = req.headers.get("Cookie");
+  if (!raw) return null;
+  for (const p of raw.split(/;\s*/)) {
+    const i = p.indexOf("=");
+    if (i > 0 && p.slice(0, i) === name) return decodeURIComponent(p.slice(i + 1));
+  }
+  return null;
+}
+// Only ever redirect to a local path (blocks open-redirects via ?next=).
+const localPath = (next: string | null) =>
+  next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
+  const next = esc(localPath(opts.next ?? "/"));
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7A2E39"><title>Cave — Connexion</title>
+<style>
+  :root{color-scheme:light dark}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;
+    font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:#f4efec;color:#241a1c}
+  @media (prefers-color-scheme:dark){body{background:#181113;color:#efe7e8}}
+  .card{width:100%;max-width:340px;text-align:center;background:#fff;
+    border-radius:16px;padding:32px 28px;box-shadow:0 10px 40px rgba(0,0,0,.12)}
+  @media (prefers-color-scheme:dark){.card{background:#251c1f;box-shadow:0 10px 40px rgba(0,0,0,.45)}}
+  .logo{font-size:40px;line-height:1}
+  h1{margin:.4em 0 0;font-size:1.5rem;letter-spacing:.02em}
+  .sub{margin:.25em 0 1.4em;opacity:.6;font-size:.95rem}
+  label{display:block;text-align:left;font-size:.85rem;opacity:.7;margin-bottom:6px}
+  input{width:100%;padding:12px 14px;font-size:1rem;border-radius:10px;color:inherit;
+    background:transparent;border:1px solid rgba(122,46,57,.35)}
+  input:focus{outline:2px solid #7A2E39;outline-offset:1px;border-color:transparent}
+  button{width:100%;margin-top:16px;padding:12px 14px;font-size:1rem;font-weight:600;
+    border:0;border-radius:10px;background:#7A2E39;color:#fff;cursor:pointer}
+  button:hover{background:#682430}
+  .err{margin:14px 0 0;color:#c0392b;font-size:.9rem}
+  @media (prefers-color-scheme:dark){.err{color:#ff8a80}}
+</style></head><body>
+  <main class="card">
+    <div class="logo">🍷</div>
+    <h1>Cave</h1>
+    <p class="sub">Accès réservé</p>
+    <form method="POST" action="/login">
+      <input type="hidden" name="next" value="${next}">
+      <label for="pw">Mot de passe</label>
+      <input id="pw" name="password" type="password" autocomplete="current-password" autofocus required>
+      ${opts.error ? `<p class="err">Mot de passe incorrect.</p>` : ""}
+      <button type="submit">Entrer</button>
+    </form>
+  </main>
+</body></html>`;
+  return new Response(html, {
+    status: opts.error ? 401 : 200,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+async function handleLogin(req: Request, secret: string | undefined, url: URL): Promise<Response> {
+  const form = await req.formData().catch(() => null);
+  const password = form ? String(form.get("password") ?? "") : "";
+  const next = localPath(form ? String(form.get("next") ?? "/") : "/");
+  if (!secret || !(await sameSecret(password, secret))) {
+    // Post/redirect/get so a refresh doesn't re-submit; GET /login renders the error.
+    const to = new URL(`/login?e=1${next !== "/" ? `&next=${encodeURIComponent(next)}` : ""}`, url);
+    return new Response(null, { status: 303, headers: { Location: to.toString(), "cache-control": "no-store" } });
+  }
+  const token = await signSession(secret, Math.floor(Date.now() / 1000) + SESSION_TTL);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: new URL(next, url).toString(),
+      "Set-Cookie": `${COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL}`,
+      "cache-control": "no-store",
+    },
+  });
+}
+
+// Serve a static file through the ASSETS binding; never let the edge share-cache
+// an authenticated HTML page (also makes deploys land immediately).
+async function serveAsset(req: Request, env: Env): Promise<Response> {
+  const res = await env.ASSETS.fetch(req);
+  if ((res.headers.get("content-type") || "").includes("text/html")) {
+    const h = new Headers(res.headers);
+    h.set("cache-control", "no-store");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  }
+  return res;
+}
+
 type Maturite = {
   status: "a_conserver" | "a_boire" | "en_retard" | "inconnu";
   ready_from: number | null;
@@ -338,17 +490,51 @@ const ROUTES: Route[] = [
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const secret = env.AUTH_PASSWORD;
     try {
-      for (const route of ROUTES) {
-        if (route.method !== request.method) continue;
-        const match = route.pattern.exec(url);
-        if (!match) continue;
-        const params: Record<string, string> = {};
-        for (const [k, v] of Object.entries(match.pathname.groups)) params[k] = v ? decodeURIComponent(v) : "";
-        return await route.handler({ env, req: request, url, params });
+      // --- public auth endpoints (reachable without a session) ---
+      if (url.pathname === "/login") {
+        if (request.method === "POST") return await handleLogin(request, secret, url);
+        if (secret && (await validSession(secret, cookie(request, COOKIE))))
+          return new Response(null, { status: 302, headers: { Location: new URL("/", url).toString() } });
+        return loginPage({ error: url.searchParams.get("e") === "1", next: url.searchParams.get("next") ?? "/" });
       }
-      // Unmatched: /api falls through to 404; everything else is served by static assets.
-      return bad("not found", 404);
+      if (url.pathname === "/logout") {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: new URL("/", url).toString(),
+            "Set-Cookie": `${COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`,
+            "cache-control": "no-store",
+          },
+        });
+      }
+
+      // --- gate: everything else needs a valid session ---
+      const authed = !!secret && (await validSession(secret, cookie(request, COOKIE)));
+      if (!authed) {
+        if (url.pathname.startsWith("/api/")) return json({ error: "unauthorized" }, 401);
+        // A browser navigation gets the login form; anything else gets a plain 401.
+        const nav = request.method === "GET" &&
+          (request.headers.get("Sec-Fetch-Mode") === "navigate" ||
+            (request.headers.get("Accept") || "").includes("text/html"));
+        if (nav) return loginPage({ next: url.pathname + url.search });
+        return json({ error: "unauthorized" }, 401);
+      }
+
+      // --- authenticated: API routes first, otherwise the static app shell ---
+      if (url.pathname.startsWith("/api/")) {
+        for (const route of ROUTES) {
+          if (route.method !== request.method) continue;
+          const match = route.pattern.exec(url);
+          if (!match) continue;
+          const params: Record<string, string> = {};
+          for (const [k, v] of Object.entries(match.pathname.groups)) params[k] = v ? decodeURIComponent(v) : "";
+          return await route.handler({ env, req: request, url, params });
+        }
+        return bad("not found", 404);
+      }
+      return await serveAsset(request, env);
     } catch (err) {
       return bad(`server error: ${(err as Error).message}`, 500);
     }

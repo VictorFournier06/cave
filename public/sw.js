@@ -2,7 +2,7 @@
 // Shell is cache-first (instant, works offline). /api GETs are network-first with
 // a cache fallback, so the cellar still loads with no signal. Writes never touch
 // the SW — the app queues them itself (see index.html) and replays on reconnect.
-const CACHE = "cave-v33";
+const CACHE = "cave-v34";
 const SHELL = ["/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png", "/icon-192-maskable.png", "/icon-512-maskable.png", "/apple-touch-icon.png"];
 // Seed the data too, so the cellar is browsable offline on the very first session.
@@ -33,7 +33,7 @@ self.addEventListener("fetch", (e) => {
   if (url.pathname.startsWith("/api/")) {
     e.respondWith(
       fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })
         .catch(() => caches.match(req)),
     );
     return;
@@ -43,7 +43,7 @@ self.addEventListener("fetch", (e) => {
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("/", copy)); return res; })
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("/", copy)); } return res; })
         .catch(() => caches.match(req).then((r) => r || caches.match("/"))),
     );
     return;
@@ -52,7 +52,7 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     caches.match(req).then((hit) =>
       hit || fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })
         .catch(() => undefined),
     ),
   );

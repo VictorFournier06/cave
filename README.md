@@ -50,6 +50,20 @@ npx wrangler d1 execute cave-db --local --file migrations/0002_geography.sql
 npx wrangler deploy
 ```
 
+## Access
+
+The whole site is private, gated by the Worker itself (no third‑party service). A
+single shared password is exchanged at `/login` for an HMAC‑signed, `HttpOnly`
+session cookie that's checked on every request — static shell and API alike
+(`run_worker_first`). Set (or rotate) the password with:
+
+```bash
+npx wrangler secret put AUTH_PASSWORD
+```
+
+Changing it signs everyone out, since the cookie's signing key is derived from the
+password. For local development the password is read from `.dev.vars` (gitignored).
+
 ## Data
 
 The owner's cellar data (the source Access database and the seeded inventory) is **not** committed. The schema in `migrations/` seeds only generic reference rows (colours, caves, colour‑based drinking windows); add your own wines through the app.
