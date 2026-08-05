@@ -392,9 +392,36 @@ function wineRow(w){
 }
 
 /* ---- sheets infra ---- */
-let sheetTrigger=null;
-function openSheet(bd){ sheetTrigger=document.activeElement; bd.classList.add("open"); }
-function closeSheet(bd){ if(!bd.classList.contains("open")) return; bd.classList.remove("open"); if(sheetTrigger&&sheetTrigger.focus){ try{ sheetTrigger.focus() }catch(e){} } }
+// A single history "barrier" tracks whether any sheet is open, so the phone/browser
+// Back button (popstate) closes the top sheet instead of leaving the app. There is only
+// ever ONE pushed entry no matter how many sheets stack, so closing several at once
+// (e.g. deleting a wine) stays balanced.
+let sheetTrigger=null, modalStack=[], sheetBarrier=false, suppressPop=false;
+function armBarrier(){ if(!sheetBarrier){ sheetBarrier=true; try{ history.pushState({caveSheet:true},"") }catch(e){} } }
+function releaseBarrier(){ if(sheetBarrier){ sheetBarrier=false; suppressPop=true; try{ history.back() }catch(e){ suppressPop=false; } } }
+function openSheet(bd){
+  if(bd.classList.contains("open")) return;
+  sheetTrigger=document.activeElement; bd.classList.add("open"); modalStack.push(bd);
+  document.documentElement.classList.add("sheet-open"); armBarrier();
+}
+function hideSheet(bd){ // visual close only — no history bookkeeping
+  if(!bd.classList.contains("open")) return;
+  bd.classList.remove("open");
+  const i=modalStack.lastIndexOf(bd); if(i>=0) modalStack.splice(i,1);
+  if(!modalStack.length) document.documentElement.classList.remove("sheet-open");
+  if(sheetTrigger&&sheetTrigger.focus){ try{ sheetTrigger.focus() }catch(e){} }
+}
+function closeSheet(bd){ // user-initiated (close button, backdrop, submit, Escape…)
+  if(!bd.classList.contains("open")) return;
+  hideSheet(bd);
+  if(!modalStack.length) releaseBarrier(); // last sheet closed → hand the history entry back
+}
+window.addEventListener("popstate",()=>{
+  if(suppressPop){ suppressPop=false; return; } // this pop is our own releaseBarrier()
+  sheetBarrier=false;                            // the browser just consumed our entry
+  const top=modalStack[modalStack.length-1];
+  if(top){ hideSheet(top); if(modalStack.length) armBarrier(); } // re-arm for any sheet still open
+});
 ["detail-bd","form-bd","sort-bd","install-bd"].forEach(id=>{ const bd=$("#"+id); bd.addEventListener("click",e=>{ if(e.target===bd) closeSheet(bd); }); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ document.querySelectorAll(".backdrop.open").forEach(closeSheet); closeDD(); } });
 function headHTML(title){ return `<div class="grip"></div><div class="sheet__head"><h2 class="sheet__title">${esc(title)}</h2><button class="iconbtn sclose" aria-label="Fermer"></button></div>`; }
@@ -544,8 +571,7 @@ function renderDetail(w){
   s.append(origin);
   // maturité
   const mc=el("div","card mat-card"); const top=el("div","top"); top.append(pill(w.maturite));
-  const setBtn=el("button","set",w.maturite.estimated||w.maturite.status==="inconnu"?"préciser la fenêtre":"modifier"); setBtn.addEventListener("click",()=>openForm(w));
-  top.append(setBtn); mc.append(top,el("p",null,matText(w.maturite))); s.append(mc);
+  mc.append(top,el("p",null,matText(w.maturite))); s.append(mc);
   // stock
   s.append(el("div","label section-label","En cave — "+plural(w.total_quantite,"bouteille")));
   if(!w.lots.length) s.append(el("p","lot-meta","Aucune bouteille en stock (catalogue)."));
