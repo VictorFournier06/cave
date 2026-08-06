@@ -88,7 +88,7 @@ function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
   const next = esc(localPath(opts.next ?? "/"));
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#7A2E39"><title>Cave — Connexion</title>
+<meta name="theme-color" content="#7A2E39"><title>In Vino Veritas — Connexion</title>
 <style>
   :root{color-scheme:light dark}
   *{box-sizing:border-box}
@@ -100,7 +100,7 @@ function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
     border-radius:16px;padding:32px 28px;box-shadow:0 10px 40px rgba(0,0,0,.12)}
   @media (prefers-color-scheme:dark){.card{background:#251c1f;box-shadow:0 10px 40px rgba(0,0,0,.45)}}
   .logo{font-size:40px;line-height:1}
-  h1{margin:.4em 0 0;font-size:1.5rem;letter-spacing:.02em}
+  h1{margin:.4em 0 0;font-size:clamp(1rem,5.2vw,1.5rem);letter-spacing:.06em;text-transform:uppercase}
   .sub{margin:.25em 0 1.4em;opacity:.6;font-size:.95rem}
   label{display:block;text-align:left;font-size:.85rem;opacity:.7;margin-bottom:6px}
   input{width:100%;padding:12px 14px;font-size:1rem;border-radius:10px;color:inherit;
@@ -114,7 +114,7 @@ function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
 </style></head><body>
   <main class="card">
     <div class="logo">🍷</div>
-    <h1>Cave</h1>
+    <h1>In Vino Veritas</h1>
     <p class="sub">Accès réservé</p>
     <form method="POST" action="/login">
       <input type="hidden" name="next" value="${next}">

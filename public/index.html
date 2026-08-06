@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cave</title>
+<title>In Vino Veritas</title>
 <meta name="theme-color" content="#7A2E39">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Cave">
+<meta name="apple-mobile-web-app-title" content="In Vino Veritas">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -21,9 +21,9 @@
   .appbar { position:sticky; top:0; z-index:6; background:color-mix(in srgb,var(--bg) 88%,transparent);
     backdrop-filter:blur(8px); display:flex; align-items:center; gap:var(--space-1); max-width:860px; margin:0 auto;
     padding:calc(env(safe-area-inset-top,0px) + var(--space-2)) clamp(var(--space-4),4vw,var(--space-6)) var(--space-2); }
-  .brandwrap { display:inline-flex; align-items:center; gap:.4rem; }
+  .brandwrap { display:inline-flex; align-items:center; gap:.4rem; min-width:0; }
   .brand-ic { border-radius:6px; display:block; flex:0 0 auto; }
-  .brand { font-family:var(--font-serif); font-size:var(--text-xl); line-height:1; }
+  .brand { font-family:var(--font-serif); font-size:clamp(0.9rem,4vw,var(--text-xl)); line-height:1; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .brand::first-letter { color:var(--accent); }
   .net { width:8px; height:8px; border-radius:50%; background:var(--st-ready-fg); align-self:center; position:relative; top:3px; }
   .net.off { background:var(--st-late-fg); }
@@ -156,7 +156,7 @@
   <header class="appbar">
     <span class="brandwrap">
       <img class="brand-ic" src="/icon-192.png" alt="" width="26" height="26">
-      <span class="brand">Cave</span>
+      <span class="brand">In Vino Veritas</span>
       <span class="net" id="net" title="En ligne"></span>
     </span>
     <span class="grow"></span>
@@ -912,12 +912,12 @@ installBtn.addEventListener("click",async()=>{
 window.addEventListener("appinstalled",()=>{ installBtn.hidden=true; closeSheet($("#install-bd")); toast("Installé ✓"); });
 function openInstallHelp(){
   const bd=$("#install-bd"), s=$("#install-sheet"); let steps, note="";
-  if(BROWSER==="samsung"){ steps=[`Ouvrez le menu ${svg("menu",18)} (les trois traits) en bas à droite de Samsung Internet.`,`Touchez <b>Ajouter la page à</b> (« Add page to »).`,`Touchez <b>Écran d'accueil</b> (« Home screen »).`,`Touchez <b>Ajouter</b> — Cave s'installe comme une application.`];
+  if(BROWSER==="samsung"){ steps=[`Ouvrez le menu ${svg("menu",18)} (les trois traits) en bas à droite de Samsung Internet.`,`Touchez <b>Ajouter la page à</b> (« Add page to »).`,`Touchez <b>Écran d'accueil</b> (« Home screen »).`,`Touchez <b>Ajouter</b> — In Vino Veritas s'installe comme une application.`];
     note="Aucun navigateur ne peut lancer l'installation tout seul sur Samsung Internet : c'est toujours cette action du menu."; }
   else if(BROWSER==="ios") steps=[`Touchez <b>Partager</b> ${svg("ios_share",18)} en bas de Safari.`,`Faites défiler et touchez <b>Sur l'écran d'accueil</b>.`,`Touchez <b>Ajouter</b>.`];
   else if(BROWSER==="firefox") steps=[`Ouvrez le menu ⋮ de Firefox.`,`Touchez <b>Installer</b> / <b>Ajouter à l'écran d'accueil</b>.`,`Confirmez.`];
   else steps=[`Ouvrez le menu ⋮ en haut à droite.`,`Touchez <b>Installer l'application</b> (ou <b>Ajouter à l'écran d'accueil</b>).`,`Confirmez.`];
-  s.innerHTML=headHTML("Installer Cave")+`<p class="origin" style="margin:.2rem 0 0">Ajoutez Cave à votre écran d'accueil : plein écran, avec l'icône, et utilisable même sans connexion.</p>
+  s.innerHTML=headHTML("Installer In Vino Veritas")+`<p class="origin" style="margin:.2rem 0 0">Ajoutez In Vino Veritas à votre écran d'accueil : plein écran, avec l'icône, et utilisable même sans connexion.</p>
     <ol class="steps">${steps.map(x=>`<li><span>${x}</span></li>`).join("")}</ol>${note?`<p class="lot-meta">${note}</p>`:""}`;
   wireClose(s,bd); openSheet(bd); s.scrollTop=0;
 }
