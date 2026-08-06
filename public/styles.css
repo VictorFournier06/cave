@@ -183,7 +183,8 @@
   .field label { font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.04em; color:var(--text-subtle); }
   .input, .field input, .field select { width:100%; min-width:0; min-height:var(--tap);
     padding:0 var(--space-3); border-radius:var(--radius-sm); border:1px solid var(--border);
-    background:var(--surface-1); color:var(--text); font-size:var(--text-md); }
+    background:var(--surface-1); color:var(--text); font-size:var(--text-md);
+    transition:border-color var(--dur-fast) var(--ease); }
   .input::placeholder { color:var(--text-subtle); }
 
   /* Search — the icon wrapper is positioned; the inner <svg class="icon"> is not */
@@ -210,7 +211,18 @@
     bottom:calc(var(--space-4) + env(safe-area-inset-bottom,0px));
     display:flex; align-items:center; gap:var(--space-2); padding:var(--space-3) var(--space-5);
     border-radius:var(--radius-pill); background:var(--accent); color:var(--accent-contrast);
-    font-weight:600; box-shadow:var(--shadow-md); }
+    font-weight:600; box-shadow:var(--shadow-md);
+    transition:background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+  .fab:active { transform:scale(.97); }
+
+  /* Hover affordances — pointer devices only, so a tap doesn't leave a stuck highlight on touch */
+  @media (hover: hover) {
+    .btn:not(.btn--primary):hover { border-color:var(--accent); background:var(--surface-2); }
+    .btn--danger:hover { background:var(--st-late-bg); }
+    .input:hover, .field input:hover, .field select:hover { border-color:var(--border-strong); }
+    .chip:not([aria-pressed="true"]):hover { border-color:var(--border-strong); background:var(--surface-2); }
+    .fab:hover { background:var(--accent-hover); box-shadow:var(--shadow-lg); }
+  }
 
   /* Sheet + backdrop */
   html.sheet-open { overflow:hidden; }           /* lock the page behind an open sheet */

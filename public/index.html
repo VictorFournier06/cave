@@ -51,8 +51,9 @@
   .dd { position:relative; }
   .dd-btn { display:inline-flex; align-items:center; gap:.25rem; min-height:38px; padding:0 .4rem 0 var(--space-3);
     border:1px solid var(--border); border-radius:var(--radius-pill); background:var(--surface-1); color:var(--text);
-    font-size:var(--text-sm); white-space:nowrap; }
+    font-size:var(--text-sm); white-space:nowrap; transition:border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
   .dd-btn.active { border-color:var(--accent); background:var(--accent-soft); }
+  @media (hover: hover) { .dd-btn:not(.active):hover { border-color:var(--border-strong); background:var(--surface-2); } }
   .dd-btn .chev { display:inline-flex; color:var(--text-subtle); transition:transform var(--dur-fast) var(--ease); }
   .dd.open .dd-btn .chev { transform:rotate(180deg); }
   .dd-btn { position:relative; }
