@@ -41,9 +41,15 @@
   .listbar { margin-top:var(--space-3); }
   .sortbtn { display:inline-flex; align-items:center; gap:.35rem; font-size:var(--text-sm); color:var(--text-muted);
     padding:var(--space-1) var(--space-2); border-radius:var(--radius-sm); white-space:nowrap; flex:0 0 auto; }
-  .sortbtn:hover { background:var(--surface-2); color:var(--text); }
+  @media (hover: hover) { .sortbtn:hover { background:var(--surface-2); color:var(--text); } }
   .sortbtn b { color:var(--text); font-weight:600; }
   .filterwrap { position:relative; margin-top:var(--space-3); }
+  /* edge fades hint that the filter row scrolls horizontally (toggled from JS) */
+  .filterwrap::before, .filterwrap::after { content:""; position:absolute; top:0; bottom:0; width:1.8rem; z-index:2; pointer-events:none; opacity:0; transition:opacity var(--dur-fast) var(--ease); }
+  .filterwrap::before { left:0; background:linear-gradient(to right, var(--bg), transparent); }
+  .filterwrap::after { right:0; background:linear-gradient(to left, var(--bg), transparent); }
+  .filterwrap.fade-left::before { opacity:1; }
+  .filterwrap.fade-right::after { opacity:1; }
   .filterbar { display:flex; align-items:center; gap:var(--space-2); min-height:var(--tap); padding-right:3rem;
     flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
   .filterbar::-webkit-scrollbar { display:none; }
@@ -51,8 +57,9 @@
   .dd { position:relative; }
   .dd-btn { display:inline-flex; align-items:center; gap:.25rem; min-height:38px; padding:0 .4rem 0 var(--space-3);
     border:1px solid var(--border); border-radius:var(--radius-pill); background:var(--surface-1); color:var(--text);
-    font-size:var(--text-sm); white-space:nowrap; transition:border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+    font-size:var(--text-sm); white-space:nowrap; transition:border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
   .dd-btn.active { border-color:var(--accent); background:var(--accent-soft); }
+  .dd-btn:active { transform:scale(.97); }
   @media (hover: hover) { .dd-btn:not(.active):hover { border-color:var(--border-strong); background:var(--surface-2); } }
   .dd-btn .chev { display:inline-flex; color:var(--text-subtle); transition:transform var(--dur-fast) var(--ease); }
   .dd.open .dd-btn .chev { transform:rotate(180deg); }
@@ -75,7 +82,7 @@
   .reset-btn { position:absolute; top:0; right:0; height:100%; z-index:3; width:auto; min-width:0; border-radius:0;
     display:inline-flex; align-items:center; justify-content:flex-end; padding:0 var(--space-1) 0 var(--space-6);
     background:linear-gradient(to right, transparent, var(--bg) var(--space-5)); color:var(--text-subtle); }
-  .reset-btn:hover { color:var(--text); }
+  @media (hover: hover) { .reset-btn:hover { color:var(--text); } }
   .reset-btn.off { display:none; }
 
   /* Autocomplete combobox — reuses the tested .dd-panel popover (scrollable, themed, positioned)
@@ -317,7 +324,8 @@ async function load(silent){
     STATE.wines=w.wines.map(normalize);
     STATE.defaultCave=mode(STATE.wines.flatMap(x=>x.lots.map(l=>l.cave)).filter(Boolean))||(STATE.meta.caves[0]||"");
     renderStats(); if(!filtersBuilt){ buildFilters(); filtersBuilt=true; } render();
-  }catch(err){ if(!silent) $("#summary-caves").textContent="Hors ligne — impossible de charger."; }
+  }catch(err){ if(!silent){ $("#summary-caves").textContent="Hors ligne — impossible de charger.";
+    if(!STATE.wines.length){ const box=$("#list"); box.replaceChildren(); const e=el("div","empty"); e.append(el("div",null,"Hors ligne — impossible de charger la cave.")); box.append(e); } } }
 }
 function mode(a){ const m={}; let b=null,bn=0; for(const v of a){ m[v]=(m[v]||0)+1; if(m[v]>bn){bn=m[v];b=v;} } return b; }
 function findWine(id){ return STATE.wines.find(w=>w.id===id); }
@@ -342,7 +350,7 @@ function renderStats(){
 function visible(){
   const q=STATE.search.trim().toLowerCase();
   let list=STATE.wines.filter(w=>{
-    if(STATE.stockOnly&&!q&&w.total_quantite===0) return false;
+    if(STATE.stockOnly&&w.total_quantite===0) return false;
     if(STATE.couleurs.size&&!STATE.couleurs.has(w.couleur)) return false;
     if(STATE.statuts.size&&!STATE.statuts.has(w.maturite.status)) return false;
     if(STATE.caves.size){ const cs=(w.caves||"").split(","); if(!cs.some(c=>STATE.caves.has(c))) return false; }
@@ -359,17 +367,30 @@ function visible(){
   });
   const byName=(a,b)=>a.nom.localeCompare(b.nom,"fr");
   const noStock=w=>w.total_quantite>0?0:1, urg=w=>w.maturite.urgency==null?-1e9:w.maturite.urgency;
+  // "À boire d'abord": rank by maturité status first (overdue → to-drink → to-keep → unknown),
+  // THEN by urgency within a status. Sorting on urgency alone let a wide-windowed "à boire"
+  // fall behind a near-window "à conserver".
+  const MATRANK={en_retard:0,a_boire:1,a_conserver:2,inconnu:3}, matRank=w=>{const r=MATRANK[w.maturite.status];return r==null?3:r;};
   if(STATE.sort==="nom") list.sort(byName);
   else if(STATE.sort==="vieux") list.sort((a,b)=>(a.millesime||9999)-(b.millesime||9999)||byName(a,b));
   else if(STATE.sort==="stock") list.sort((a,b)=>noStock(a)-noStock(b)||a.total_quantite-b.total_quantite||byName(a,b));
-  else list.sort((a,b)=>noStock(a)-noStock(b)||urg(b)-urg(a)||byName(a,b));
+  else list.sort((a,b)=>noStock(a)-noStock(b)||matRank(a)-matRank(b)||urg(b)-urg(a)||byName(a,b));
   return list;
 }
+// Toggle the filter-row edge fades based on horizontal scroll position.
+function updateFilterFade(){
+  const b=$("#filterbar"), w=$(".filterwrap"); if(!b||!w) return;
+  const sl=Math.round(b.scrollLeft);
+  w.classList.toggle("fade-right", b.scrollWidth-b.clientWidth-sl>2);
+  w.classList.toggle("fade-left", sl>2);
+}
+$("#filterbar").addEventListener("scroll",updateFilterFade,{passive:true});
+addEventListener("resize",updateFilterFade);
 function render(){
   const list=visible(), box=$("#list"); box.replaceChildren();
   $("#count").textContent=plural(list.length,"vin");
   $("#sort-btn").innerHTML=svg("sort",18)+" Trier : <b>"+SORTS.find(s=>s[0]===STATE.sort)[1]+"</b>";
-  updateFilterButtons();
+  updateFilterButtons(); updateFilterFade();
   if(!list.length){
     const e=el("div","empty"); e.append(el("div",null,"Aucun vin ne correspond."));
     if(STATE.search||!STATE.stockOnly||FILTER_GROUPS.some(g=>STATE[g].size)){
