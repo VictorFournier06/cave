@@ -6,6 +6,7 @@ files.zip
 
 # Personal cellar data — kept out of this public repo
 Cave.accdb
+*.xlsx
 dev/
 seed/*.sql
 seed/*.csv

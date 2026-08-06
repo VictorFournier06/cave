@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>In Vino Veritas</title>
+<title>In vino veritas</title>
 <meta name="theme-color" content="#7A2E39">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="In Vino Veritas">
+<meta name="apple-mobile-web-app-title" content="In vino veritas">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -23,7 +23,7 @@
     padding:calc(env(safe-area-inset-top,0px) + var(--space-2)) clamp(var(--space-4),4vw,var(--space-6)) var(--space-2); }
   .brandwrap { display:inline-flex; align-items:center; gap:.4rem; min-width:0; }
   .brand-ic { border-radius:6px; display:block; flex:0 0 auto; }
-  .brand { font-family:var(--font-serif); font-size:clamp(0.9rem,4vw,var(--text-xl)); line-height:1; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .brand { font-family:var(--font-serif); font-size:clamp(0.95rem,4.2vw,var(--text-xl)); line-height:1; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .brand::first-letter { color:var(--accent); }
   .net { width:8px; height:8px; border-radius:50%; background:var(--st-ready-fg); align-self:center; position:relative; top:3px; }
   .net.off { background:var(--st-late-fg); }
@@ -118,6 +118,37 @@
   .lot-where { font-size:var(--text-md); }
   .lot-meta { font-size:var(--text-sm); color:var(--text-muted); }
   .lot-qte { font-family:var(--font-serif); font-size:var(--text-lg); min-width:1.4rem; text-align:right; }
+  /* Detail: facet chips */
+  .facets { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-3); }
+  .facet { font-size:var(--text-sm); color:var(--text-muted); background:var(--surface-2); border:1px solid var(--border);
+    border-radius:var(--radius-pill); padding:.12rem var(--space-3); white-space:nowrap; }
+  /* Section header with an optional right-aligned aside (count, average note) */
+  .section-head { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); }
+  .section-head-t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .section-head-x { font-size:var(--text-sm); color:var(--text-muted); font-weight:400; white-space:nowrap; flex:0 0 auto; }
+  /* Note badge (/20), colour-tiered: excellent / correct / faible */
+  .deg-avg { display:inline-flex; align-items:center; gap:.35rem; }
+  .deg-avg-lbl { font-size:var(--text-xs); color:var(--text-subtle); text-transform:uppercase; letter-spacing:.04em; }
+  .note-badge { display:inline-flex; align-items:baseline; gap:.06rem; font-variant-numeric:tabular-nums;
+    padding:.14rem .45rem; border-radius:var(--radius-sm); line-height:1; flex:0 0 auto; }
+  .note-badge b { font-family:var(--font-serif); font-size:var(--text-lg); font-weight:600; }
+  .note-badge small { font-size:var(--text-xs); opacity:.75; }
+  .note--high { color:var(--st-ready-fg); background:var(--st-ready-bg); }
+  .note--mid  { color:var(--text); background:var(--surface-2); }
+  .note--low  { color:var(--st-late-fg); background:var(--st-late-bg); }
+  .note--none { color:var(--text-subtle); background:var(--surface-2); }
+  /* Tasting rows */
+  .deg-list:empty { display:none; }
+  .deg { display:flex; align-items:center; gap:var(--space-3); width:100%; text-align:left;
+    padding:var(--space-3) .1rem; border-bottom:1px solid var(--border);
+    transition:background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+  .deg-info { flex:1; min-width:0; }
+  .deg-date { font-size:var(--text-md); }
+  .deg-comment { font-size:var(--text-sm); color:var(--text-muted); margin-top:.1rem; }
+  .deg-edit { color:var(--text-subtle); flex:0 0 auto; display:inline-flex; }
+  .deg:active { transform:scale(.99); }
+  @media (hover: hover) { .deg:hover { background:var(--surface-2); } .deg:hover .deg-edit { color:var(--text); } }
+  #deg-del { margin-top:var(--space-1); }
   form { display:flex; flex-direction:column; gap:var(--space-3); }
   .form-section { border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--space-4); background:var(--surface-1); }
   .form-section h4 { margin:0 0 var(--space-3); font-family:var(--font-serif); font-weight:600; font-size:var(--text-md); }
@@ -144,8 +175,6 @@
   @keyframes shimmer { 100% { transform:translateX(100%); } }
   @media (prefers-reduced-motion: reduce){ .skel-row::after { animation:none; } }
 
-  /* Wine location — surfaces the cave on wide rows, hidden on mobile to stay clean */
-
   .offline-bar { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--space-4) + env(safe-area-inset-bottom,0px));
     z-index:25; background:var(--text); color:var(--bg); font-size:var(--text-sm); padding:var(--space-2) var(--space-4);
     border-radius:var(--radius-pill); box-shadow:var(--shadow-lg); display:none; align-items:center; gap:var(--space-2); }
@@ -156,7 +185,7 @@
   <header class="appbar">
     <span class="brandwrap">
       <img class="brand-ic" src="/icon-192.png" alt="" width="26" height="26">
-      <span class="brand">In Vino Veritas</span>
+      <span class="brand">In vino veritas</span>
       <span class="net" id="net" title="En ligne"></span>
     </span>
     <span class="grow"></span>
@@ -260,6 +289,8 @@ const $=s=>document.querySelector(s);
 const el=(t,cls,txt)=>{const e=document.createElement(t); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;};
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const plural=(n,w)=>`${n} ${w}${n>1?"s":""}`;
+const fmtDate=d=>{ if(!d)return null; const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d)); return m?`${m[3]}/${m[2]}/${m[1]}`:d; };
+const fmtNote=n=>String(Math.round(n*10)/10).replace(".",",");
 
 let STATE={ wines:[], meta:null, colorMap:{}, appWin:{}, defaultCave:"", year:new Date().getFullYear(),
   search:"", sort:"maturite", stockOnly:true, couleurs:new Set(), caves:new Set(), statuts:new Set(),
@@ -604,42 +635,119 @@ function openSort(){
 const detailBd=$("#detail-bd"), detailSheet=$("#detail-sheet");
 function openDetail(id){ const w=findWine(id); if(!w)return; openSheet(detailBd); renderDetail(w); detailSheet.scrollTop=0; }
 function refresh(w){ renderStats(); render(); if(detailBd.classList.contains("open")&&detailSheet.dataset.id===w.id) renderDetail(w); }
+function sectionHead(title,right){
+  const h=el("div","label section-label section-head"); h.append(el("span","section-head-t",title));
+  if(right!=null){ h.append(typeof right==="string"?el("span","section-head-x",right):right); }
+  return h;
+}
 function renderDetail(w){
   const s=detailSheet; s.replaceChildren(); s.dataset.id=w.id;
   s.append(el("div","grip"));
   const head=el("div","sheet__head");
-  const dot=el("span","dot-lg"); dot.style.background=hue(w.couleur); dot.style.marginTop=".45rem";
-  const htxt=el("div"); htxt.style.flex="1";
+  const dot=el("span","dot-lg"); dot.style.background=hue(w.couleur); dot.style.marginTop=".5rem";
+  const htxt=el("div"); htxt.style.flex="1"; htxt.style.minWidth="0";
   htxt.append(el("h2","sheet__title",w.nom));
-  htxt.append(el("div","detail-sub",[w.producteur,w.millesime,w.couleur,w.capacite_l?capLabel(w.capacite_l):null].filter(Boolean).join(" · ")));
+  if(w.producteur) htxt.append(el("div","detail-sub",w.producteur));
   const close=el("button","iconbtn sclose"); close.innerHTML=svg("close",22); close.setAttribute("aria-label","Fermer"); close.addEventListener("click",()=>closeSheet(detailBd));
   head.append(dot,htxt,close); s.append(head);
-  // origin
-  const origin=el("p","origin"); const parts=[w.appellation,w.sous_region,w.region,w.pays].filter(Boolean);
-  if(parts.length){ origin.append(document.createTextNode("Origine : ")); origin.append(el("b",null,parts[0])); if(parts.length>1) origin.append(document.createTextNode(" — "+parts.slice(1).join(", "))); }
+  // key facts as scannable chips
+  const facets=el("div","facets");
+  if(w.millesime!=null) facets.append(el("span","facet",String(w.millesime)));
+  if(w.couleur) facets.append(el("span","facet",w.couleur));
+  if(w.capacite_l!=null) facets.append(el("span","facet",capLabel(w.capacite_l)));
+  if(w.degre) facets.append(el("span","facet",String(w.degre).replace(".",",")+"°"));
+  if(facets.children.length) s.append(facets);
+  // origin (bold on the finest level, then the coarser path)
+  const parts=[w.appellation,w.sous_region,w.region,w.pays].filter(Boolean);
+  const origin=el("p","origin");
+  if(parts.length){ origin.append(el("b",null,parts[0])); if(parts.length>1) origin.append(document.createTextNode("  ·  "+parts.slice(1).join(" · "))); }
   else origin.textContent="Origine à préciser";
   s.append(origin);
   // maturité
   const mc=el("div","card mat-card"); const top=el("div","top"); top.append(pill(w.maturite));
   mc.append(top,el("p",null,matText(w.maturite))); s.append(mc);
+  // dégustations
+  renderDegustations(w,s);
   // stock
-  s.append(el("div","label section-label","En cave — "+plural(w.total_quantite,"bouteille")));
+  s.append(sectionHead("En cave",plural(w.total_quantite,"bouteille")));
   if(!w.lots.length) s.append(el("p","lot-meta","Aucune bouteille en stock (catalogue)."));
   for(const lot of w.lots) s.append(lotRow(w,lot));
   const addLotBtn=el("button","btn btn--ghost btn--block"); addLotBtn.innerHTML=svg("add",18)+"<span>Ajouter des bouteilles ici</span>"; addLotBtn.style.marginTop=".8rem";
   addLotBtn.addEventListener("click",()=>toggleAddLot(w)); s.append(addLotBtn);
   const holder=el("div"); holder.id="addlot-holder"; s.append(holder);
-  if(w.recompenses||w.remarques){ s.append(el("div","label section-label","Notes"));
+  if(w.recompenses||w.remarques){ s.append(sectionHead("Récompenses & remarques"));
     if(w.recompenses){ const rc=el("p","lot-meta"); rc.innerHTML=svg("trophy",16)+" "+esc(w.recompenses); s.append(rc); }
     if(w.remarques) s.append(el("p","lot-meta",w.remarques)); }
   const foot=el("div","sheet-foot"); const edit=el("button","btn btn--block"); edit.innerHTML=svg("edit",18)+"<span>Modifier la fiche</span>"; edit.addEventListener("click",()=>openForm(w)); foot.append(edit); s.append(foot);
+}
+/* ---- dégustations (tastings) ---- */
+function noteBadge(n){ const cls=n>=16?"note--high":(n<12?"note--low":"note--mid");
+  const b=el("span","note-badge "+cls); b.append(el("b",null,fmtNote(n))); b.append(el("small",null,"/20")); return b; }
+function renderDegustations(w,s){
+  const ds=w.degustations||[]; const notes=ds.map(d=>d.note).filter(n=>n!=null);
+  const avg=notes.length?notes.reduce((a,b)=>a+b,0)/notes.length:null;
+  let right=null; if(avg!=null){ right=el("span","deg-avg"); right.append(el("span","deg-avg-lbl","moy.")); right.append(noteBadge(avg)); }
+  s.append(sectionHead("Dégustations",right));
+  const list=el("div","deg-list");
+  if(!ds.length) list.append(el("p","lot-meta","Pas encore de dégustation."));
+  else for(const d of ds) list.append(degRow(w,d));
+  s.append(list);
+  const addBtn=el("button","btn btn--ghost btn--block"); addBtn.innerHTML=svg("add",18)+"<span>Nouvelle dégustation</span>"; addBtn.style.marginTop=".8rem";
+  addBtn.addEventListener("click",()=>openDegForm(w,null)); s.append(addBtn);
+  const holder=el("div"); holder.id="degform-holder"; s.append(holder);
+}
+function degRow(w,d){
+  const row=el("button","deg"); row.type="button";
+  if(d.note!=null) row.append(noteBadge(d.note)); else { const nb=el("span","note-badge note--none"); nb.append(el("small",null,"—/20")); row.append(nb); }
+  const info=el("div","deg-info");
+  info.append(el("div","deg-date",fmtDate(d.date)||"Date non précisée"));
+  if(d.commentaire) info.append(el("div","deg-comment",d.commentaire));
+  row.append(info);
+  const ed=el("span","deg-edit"); ed.innerHTML=svg("edit",15); row.append(ed);
+  row.addEventListener("click",()=>openDegForm(w,d));
+  return row;
+}
+function openDegForm(w,d){
+  const holder=$("#degform-holder"); if(!holder) return; const edit=!!d;
+  const key=edit?"e:"+d.id:"add";
+  if(holder.dataset.open===key){ holder.replaceChildren(); holder.dataset.open=""; return; } // tap again to close
+  holder.replaceChildren(); holder.dataset.open=key;
+  const f=document.createElement("form"); f.className="form-section"; f.style.marginTop=".6rem";
+  const today=new Date().toISOString().slice(0,10);
+  f.innerHTML=`
+    <div class="row2">
+      <div class="field"><label>Date</label><input name="date" type="date" value="${edit?esc(d.date||""):today}"></div>
+      <div class="field"><label>Note / 20</label><input name="note" type="number" min="0" max="20" step="0.5" inputmode="decimal" placeholder="ex. 16" value="${edit&&d.note!=null?d.note:""}"></div></div>
+    <div class="field"><label>Commentaire</label><textarea class="input" name="commentaire" rows="2" style="resize:vertical" placeholder="Accord, contexte, impression…">${edit?esc(d.commentaire):""}</textarea></div>
+    <button class="btn btn--primary btn--block" type="submit">${edit?"Enregistrer":"Ajouter la dégustation"}</button>
+    ${edit?'<button type="button" class="btn--danger btn--block" id="deg-del">Supprimer cette dégustation</button>':""}`;
+  f.addEventListener("submit",async e=>{ e.preventDefault();
+    const body=formData(f); const note=body.note===""||body.note==null?null:+body.note;
+    if(edit){ Object.assign(d,{date:body.date||null,note,commentaire:body.commentaire||null});
+      refresh(w);
+      const res=await writeApi(`/api/degustations/${encodeURIComponent(d.id)}`,"PATCH",body);
+      afterWrite(res,w.id,"Dégustation modifiée","Modifié — à synchroniser");
+    } else {
+      const tmp={id:"tmp-"+Math.random().toString(36).slice(2),wine_id:w.id,date:body.date||null,note,commentaire:body.commentaire||null,updated_at:Date.now()};
+      w.degustations=[tmp,...(w.degustations||[])]; refresh(w);
+      const res=await writeApi(`/api/wines/${encodeURIComponent(w.id)}/degustations`,"POST",body);
+      afterWrite(res,w.id,"Dégustation ajoutée","Ajouté — à synchroniser");
+    } });
+  if(edit) f.querySelector("#deg-del").addEventListener("click",()=>deleteDeg(w,d));
+  holder.append(f); const nf=f.querySelector('[name="note"]'); if(nf) nf.focus();
+}
+async function deleteDeg(w,d){
+  const label=(fmtDate(d.date)?fmtDate(d.date)+" · ":"")+(d.note!=null?fmtNote(d.note)+"/20":"note");
+  if(!(await confirmDialog("Supprimer cette dégustation ?",label,"Supprimer",true))) return;
+  w.degustations=(w.degustations||[]).filter(x=>x.id!==d.id); refresh(w);
+  const res=await writeApi(`/api/degustations/${encodeURIComponent(d.id)}`,"DELETE");
+  afterWrite(res,w.id,"Dégustation supprimée","Supprimé — à synchroniser");
 }
 function capLabel(v){ const f=CAPS.find(c=>c[0]===v); return f?f[1].split(" · ")[1]:v+" L"; }
 function lotRow(w,lot){
   const row=el("div","lot"), info=el("div"); info.style.flex="1"; info.style.minWidth="0";
   const where=lot.emplacement==="Vrac"?`${lot.cave||"?"} · Vrac`:`${lot.cave||"?"} · ${lot.emplacement||"Étagère"}${lot.ligne?` L${lot.ligne}`:""}${lot.colonne?`·C${lot.colonne}`:""}`;
   info.append(el("div","lot-where",where));
-  const fmtDate=d=>{ if(!d)return null; const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d)); return m?`${m[3]}/${m[2]}/${m[1]}`:d; };
   const meta=[lot.prix!=null?`${(+lot.prix).toFixed(2)} €`:null,lot.fournisseur,fmtDate(lot.date_entree)&&"entré le "+fmtDate(lot.date_entree)].filter(Boolean).join(" · ");
   if(meta) info.append(el("div","lot-meta",meta));
   if(lot.commentaire) info.append(el("div","lot-meta",lot.commentaire));
@@ -912,12 +1020,12 @@ installBtn.addEventListener("click",async()=>{
 window.addEventListener("appinstalled",()=>{ installBtn.hidden=true; closeSheet($("#install-bd")); toast("Installé ✓"); });
 function openInstallHelp(){
   const bd=$("#install-bd"), s=$("#install-sheet"); let steps, note="";
-  if(BROWSER==="samsung"){ steps=[`Ouvrez le menu ${svg("menu",18)} (les trois traits) en bas à droite de Samsung Internet.`,`Touchez <b>Ajouter la page à</b> (« Add page to »).`,`Touchez <b>Écran d'accueil</b> (« Home screen »).`,`Touchez <b>Ajouter</b> — In Vino Veritas s'installe comme une application.`];
+  if(BROWSER==="samsung"){ steps=[`Ouvrez le menu ${svg("menu",18)} (les trois traits) en bas à droite de Samsung Internet.`,`Touchez <b>Ajouter la page à</b> (« Add page to »).`,`Touchez <b>Écran d'accueil</b> (« Home screen »).`,`Touchez <b>Ajouter</b> — In vino veritas s'installe comme une application.`];
     note="Aucun navigateur ne peut lancer l'installation tout seul sur Samsung Internet : c'est toujours cette action du menu."; }
   else if(BROWSER==="ios") steps=[`Touchez <b>Partager</b> ${svg("ios_share",18)} en bas de Safari.`,`Faites défiler et touchez <b>Sur l'écran d'accueil</b>.`,`Touchez <b>Ajouter</b>.`];
   else if(BROWSER==="firefox") steps=[`Ouvrez le menu ⋮ de Firefox.`,`Touchez <b>Installer</b> / <b>Ajouter à l'écran d'accueil</b>.`,`Confirmez.`];
   else steps=[`Ouvrez le menu ⋮ en haut à droite.`,`Touchez <b>Installer l'application</b> (ou <b>Ajouter à l'écran d'accueil</b>).`,`Confirmez.`];
-  s.innerHTML=headHTML("Installer In Vino Veritas")+`<p class="origin" style="margin:.2rem 0 0">Ajoutez In Vino Veritas à votre écran d'accueil : plein écran, avec l'icône, et utilisable même sans connexion.</p>
+  s.innerHTML=headHTML("Installer In vino veritas")+`<p class="origin" style="margin:.2rem 0 0">Ajoutez In vino veritas à votre écran d'accueil : plein écran, avec l'icône, et utilisable même sans connexion.</p>
     <ol class="steps">${steps.map(x=>`<li><span>${x}</span></li>`).join("")}</ol>${note?`<p class="lot-meta">${note}</p>`:""}`;
   wireClose(s,bd); openSheet(bd); s.scrollTop=0;
 }

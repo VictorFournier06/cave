@@ -1,4 +1,4 @@
-# In Vino Veritas
+# In vino veritas
 
 A personal wine‑cellar app — find a bottle to drink *now*, see what's past its window, and know what to rebuy. Built as an installable, offline‑capable PWA on Cloudflare's edge.
 

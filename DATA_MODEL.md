@@ -45,6 +45,17 @@ Two deliberate departures from the `.accdb`:
 
 Schema is in `migrations/0001_init.sql`.
 
+## Degustations (tastings)
+
+Added in `migrations/0003_degustations.sql`. A **degustation** is one tasting of a
+wine on a day: a `date` (nullable), a `note` out of 20 (REAL — half-points allowed),
+and a free `commentaire`. Same uuid PK + `updated_at`/`deleted` sync columns as the
+rest of the schema; FK to `wines(id)`. Maturité stays computed — a degustation is the
+human record of what a bottle was actually like.
+
+The 8 initial rows were imported from `Dégustations.xlsx` (gitignored). Its `ID Vin`
+column is the legacy Access `Vins.ID`, which maps to the D1 wine id as `'v' || ID Vin`.
+
 ## Open questions for the client (cheap to change — don't block on them)
 
 The data answers most modelling questions; these it can't. Defaults are chosen so

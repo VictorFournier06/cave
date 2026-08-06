@@ -88,7 +88,7 @@ function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
   const next = esc(localPath(opts.next ?? "/"));
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#7A2E39"><title>In Vino Veritas — Connexion</title>
+<meta name="theme-color" content="#7A2E39"><title>In vino veritas — Connexion</title>
 <style>
   :root{color-scheme:light dark}
   *{box-sizing:border-box}
@@ -100,7 +100,7 @@ function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
     border-radius:16px;padding:32px 28px;box-shadow:0 10px 40px rgba(0,0,0,.12)}
   @media (prefers-color-scheme:dark){.card{background:#251c1f;box-shadow:0 10px 40px rgba(0,0,0,.45)}}
   .logo{font-size:40px;line-height:1}
-  h1{margin:.4em 0 0;font-size:clamp(1rem,5.2vw,1.5rem);letter-spacing:.06em;text-transform:uppercase}
+  h1{margin:.4em 0 0;font-size:clamp(1.05rem,5.2vw,1.6rem);letter-spacing:.01em}
   .sub{margin:.25em 0 1.4em;opacity:.6;font-size:.95rem}
   label{display:block;text-align:left;font-size:.85rem;opacity:.7;margin-bottom:6px}
   input{width:100%;padding:12px 14px;font-size:1rem;border-radius:10px;color:inherit;
@@ -114,7 +114,7 @@ function loginPage(opts: { error?: boolean; next?: string } = {}): Response {
 </style></head><body>
   <main class="card">
     <div class="logo">🍷</div>
-    <h1>In Vino Veritas</h1>
+    <h1>In vino veritas</h1>
     <p class="sub">Accès réservé</p>
     <form method="POST" action="/login">
       <input type="hidden" name="next" value="${next}">
@@ -247,16 +247,21 @@ function enrich(w: WineRow, year: number) {
 const LOT_SELECT =
   `SELECT id, wine_id, cave, emplacement, ligne, colonne, quantite, fournisseur, prix, date_entree, commentaire
    FROM lots WHERE deleted = 0`;
+const DEG_SELECT =
+  `SELECT id, wine_id, date, note, commentaire, updated_at FROM degustations WHERE deleted = 0`;
 
 async function listWines(env: Env): Promise<Response> {
   const year = currentYear();
-  const [wr, lr] = await Promise.all([
+  const [wr, lr, dr] = await Promise.all([
     env.DB.prepare(`${WINE_SELECT} ORDER BY w.nom COLLATE NOCASE`).all<WineRow>(),
     env.DB.prepare(`${LOT_SELECT} ORDER BY cave, emplacement, ligne, colonne`).all<{ wine_id: string }>(),
+    env.DB.prepare(`${DEG_SELECT} ORDER BY (date IS NULL), date DESC, updated_at DESC`).all<{ wine_id: string }>(),
   ]);
   const byWine = new Map<string, unknown[]>();
   for (const l of lr.results) { const a = byWine.get(l.wine_id) ?? []; a.push(l); byWine.set(l.wine_id, a); }
-  return json({ year, wines: wr.results.map((w) => ({ ...enrich(w, year), lots: byWine.get(w.id) ?? [] })) });
+  const degByWine = new Map<string, unknown[]>();
+  for (const d of dr.results) { const a = degByWine.get(d.wine_id) ?? []; a.push(d); degByWine.set(d.wine_id, a); }
+  return json({ year, wines: wr.results.map((w) => ({ ...enrich(w, year), lots: byWine.get(w.id) ?? [], degustations: degByWine.get(w.id) ?? [] })) });
 }
 
 async function getWine(env: Env, id: string): Promise<Response> {
@@ -264,7 +269,10 @@ async function getWine(env: Env, id: string): Promise<Response> {
   const w = await env.DB.prepare(`${WINE_SELECT} HAVING w.id = ?1`).bind(id).first<WineRow>();
   if (!w) return bad("wine not found", 404);
   const { results: lots } = await env.DB.prepare(`${LOT_SELECT} AND wine_id = ?1 ORDER BY cave, emplacement, ligne, colonne`).bind(id).all();
-  return json({ year, wine: { ...enrich(w, year), lots } });
+  const { results: degustations } = await env.DB.prepare(
+    `${DEG_SELECT} AND wine_id = ?1 ORDER BY (date IS NULL), date DESC, updated_at DESC`,
+  ).bind(id).all();
+  return json({ year, wine: { ...enrich(w, year), lots, degustations } });
 }
 
 // ---- reference lists + geography auto-deduce ----------------------------
@@ -441,6 +449,56 @@ async function deleteLot(env: Env, lotId: string): Promise<Response> {
   return getWine(env, lot.wine_id);
 }
 
+// ---- degustations (tastings): a mark /20 + comment on a given day ----------
+// Returns null for empty, a valid 0–20 number, or `undefined` as an "invalid"
+// sentinel the callers turn into a 400.
+function parseNote(v: unknown): number | null | undefined {
+  if (v === "" || v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > 20) return undefined;
+  return n;
+}
+
+async function addDegustation(env: Env, wineId: string, body: Json): Promise<Response> {
+  const w = await env.DB.prepare("SELECT id FROM wines WHERE id=?1 AND deleted=0").bind(wineId).first();
+  if (!w) return bad("wine not found", 404);
+  const note = parseNote(body.note);
+  if (note === undefined) return bad("note must be a number between 0 and 20");
+  await env.DB.prepare(
+    `INSERT INTO degustations (id,wine_id,date,note,commentaire,updated_at,deleted)
+     VALUES (?1,?2,?3,?4,?5,?6,0)`,
+  ).bind(crypto.randomUUID(), wineId, str(body.date), note, str(body.commentaire), now()).run();
+  return getWine(env, wineId);
+}
+
+async function updateDegustation(env: Env, id: string, body: Json): Promise<Response> {
+  const d = await env.DB.prepare("SELECT wine_id FROM degustations WHERE id=?1 AND deleted=0")
+    .bind(id).first<{ wine_id: string }>();
+  if (!d) return bad("degustation not found", 404);
+  const sets: string[] = [], vals: unknown[] = [];
+  if ("date" in body) { sets.push(`date=?${vals.length + 1}`); vals.push(str(body.date)); }
+  if ("note" in body) {
+    const note = parseNote(body.note);
+    if (note === undefined) return bad("note must be a number between 0 and 20");
+    sets.push(`note=?${vals.length + 1}`); vals.push(note);
+  }
+  if ("commentaire" in body) { sets.push(`commentaire=?${vals.length + 1}`); vals.push(str(body.commentaire)); }
+  if (sets.length) {
+    sets.push(`updated_at=?${vals.length + 1}`); vals.push(now());
+    vals.push(id);
+    await env.DB.prepare(`UPDATE degustations SET ${sets.join(",")} WHERE id=?${vals.length}`).bind(...vals).run();
+  }
+  return getWine(env, d.wine_id);
+}
+
+async function deleteDegustation(env: Env, id: string): Promise<Response> {
+  const d = await env.DB.prepare("SELECT wine_id FROM degustations WHERE id=?1 AND deleted=0")
+    .bind(id).first<{ wine_id: string }>();
+  if (!d) return bad("degustation not found", 404);
+  await env.DB.prepare("UPDATE degustations SET deleted=1, updated_at=?2 WHERE id=?1").bind(id, now()).run();
+  return getWine(env, d.wine_id);
+}
+
 // Teach the dictionary a geography combo it doesn't know yet (idempotent-ish).
 async function teachAppellation(env: Env, body: Json): Promise<void> {
   const appellation = str(body.appellation);
@@ -508,6 +566,9 @@ const ROUTES: Route[] = [
   { method: "POST",   pattern: pat("/api/lots/:id/drink"),   handler: (c) => drinkLot(c.env, c.params.id) },
   { method: "POST",   pattern: pat("/api/lots/:id/undrink"), handler: (c) => undrinkLot(c.env, c.params.id) },
   { method: "DELETE", pattern: pat("/api/lots/:id"),         handler: (c) => deleteLot(c.env, c.params.id) },
+  { method: "POST",   pattern: pat("/api/wines/:id/degustations"), handler: async (c) => addDegustation(c.env, c.params.id, await readJson(c.req)) },
+  { method: "PATCH",  pattern: pat("/api/degustations/:id"),       handler: async (c) => updateDegustation(c.env, c.params.id, await readJson(c.req)) },
+  { method: "DELETE", pattern: pat("/api/degustations/:id"),       handler: (c) => deleteDegustation(c.env, c.params.id) },
 ];
 
 export default {
