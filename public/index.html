@@ -100,6 +100,19 @@
   .wine-nom { font-family:var(--font-serif); font-size:var(--text-lg); line-height:var(--leading-snug); }
   .wine-sub { font-size:var(--text-sm); color:var(--text-muted); margin-top:.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .wine-right { display:flex; flex-direction:column; align-items:flex-end; gap:.3rem; }
+  .qty-line { display:flex; align-items:center; gap:.4rem; }
+  .nb-sm { padding:.05rem .32rem; }
+  .nb-sm b { font-size:var(--text-base); }
+  .nb-sm small { font-size:9px; }
+  /* grade (note) range filter panel */
+  .note-panel { min-width:210px; padding:var(--space-3); }
+  .nr-toggle { display:flex; align-items:center; gap:var(--space-2); font-size:var(--text-sm); cursor:pointer; padding:0 0 var(--space-2); }
+  .nr-toggle input { width:16px; height:16px; accent-color:var(--accent); flex:0 0 auto; }
+  .nr-row { display:grid; grid-template-columns:2rem 1fr 1.4rem; align-items:center; gap:var(--space-2); margin-top:var(--space-2); font-size:var(--text-sm); }
+  .nr-k { color:var(--text-muted); }
+  .nr-row input[type=range] { width:100%; accent-color:var(--accent); }
+  .nr-row b { font-variant-numeric:tabular-nums; text-align:right; }
+  .nr-hint { margin:var(--space-2) 0 0; font-size:var(--text-xs); color:var(--text-subtle); }
   .qte { font-family:var(--font-serif); font-size:var(--text-lg); }
   .qte small { font-size:var(--text-xs); color:var(--text-subtle); font-family:var(--font-sans); }
   .qte.zero { color:var(--text-subtle); }
@@ -209,6 +222,7 @@
       <div class="filterwrap">
       <div class="filterbar" id="filterbar">
         <div class="dd" data-group="statuts"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
+        <div class="dd" data-group="note"><button type="button" class="dd-btn"></button><div class="dd-panel note-panel"></div></div>
         <div class="dd" data-group="couleurs"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
         <div class="dd" data-group="caves"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
         <div class="dd" data-group="pays"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
@@ -291,9 +305,11 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",
 const plural=(n,w)=>`${n} ${w}${n>1?"s":""}`;
 const fmtDate=d=>{ if(!d)return null; const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d)); return m?`${m[3]}/${m[2]}/${m[1]}`:d; };
 const fmtNote=n=>String(Math.round(n*10)/10).replace(".",",");
+// A wine's grade = mean of its tasting notes (/20), or null when never tasted.
+function gradeOf(w){ const ns=(w.degustations||[]).map(d=>d.note).filter(n=>n!=null); return ns.length?ns.reduce((a,b)=>a+b,0)/ns.length:null; }
 
 let STATE={ wines:[], meta:null, colorMap:{}, appWin:{}, defaultCave:"", year:new Date().getFullYear(),
-  search:"", sort:"maturite", stockOnly:true, couleurs:new Set(), caves:new Set(), statuts:new Set(),
+  search:"", sort:"maturite", stockOnly:true, grade:null, couleurs:new Set(), caves:new Set(), statuts:new Set(),
   appellations:new Set(), pays:new Set(), regions:new Set(), sous_regions:new Set(), millesimes:new Set(), capacites:new Set() };
 const FILTER_GROUPS=["statuts","couleurs","caves","pays","regions","sous_regions","appellations","millesimes","capacites"];
 const appKey=(app,coul)=>String(app||"").trim().toLowerCase()+"\u0000"+String(coul||"").trim().toLowerCase();
@@ -382,6 +398,7 @@ function visible(){
   const q=STATE.search.trim().toLowerCase();
   let list=STATE.wines.filter(w=>{
     if(STATE.stockOnly&&w.total_quantite===0) return false;
+    if(STATE.grade){ const g=gradeOf(w); if(g==null||g<STATE.grade.min||g>STATE.grade.max) return false; }
     if(STATE.couleurs.size&&!STATE.couleurs.has(w.couleur)) return false;
     if(STATE.statuts.size&&!STATE.statuts.has(w.maturite.status)) return false;
     if(STATE.caves.size){ const cs=(w.caves||"").split(","); if(!cs.some(c=>STATE.caves.has(c))) return false; }
@@ -424,7 +441,7 @@ function render(){
   updateFilterButtons(); updateFilterFade();
   if(!list.length){
     const e=el("div","empty"); e.append(el("div",null,"Aucun vin ne correspond."));
-    if(STATE.search||!STATE.stockOnly||FILTER_GROUPS.some(g=>STATE[g].size)){
+    if(STATE.search||!STATE.stockOnly||STATE.grade||FILTER_GROUPS.some(g=>STATE[g].size)){
       const b=el("button","btn btn--sm","Réinitialiser"); b.style.marginTop="var(--space-4)"; b.addEventListener("click",resetAll); e.append(b);
     }
     box.append(e); return;
@@ -438,8 +455,11 @@ function wineRow(w){
   main.append(el("div","wine-nom",w.nom));
   main.append(el("div","wine-sub",[w.millesime,w.appellation||w.sous_region||w.region,w.caves?w.caves.split(",").join(" · "):null].filter(Boolean).join(" · ")||"—"));
   const right=el("div","wine-right");
+  const qline=el("div","qty-line");
+  const g=gradeOf(w); if(g!=null){ const nb=noteBadge(g); nb.classList.add("nb-sm"); qline.append(nb); }
   const q=el("div","qte"+(w.total_quantite?"":" zero")); q.append(document.createTextNode(String(w.total_quantite)),el("small",null," btl"));
-  right.append(q,pill(w.maturite));
+  qline.append(q);
+  right.append(qline,pill(w.maturite));
   row.append(dot,main,right); row.addEventListener("click",()=>openDetail(w.id));
   return row;
 }
@@ -539,7 +559,7 @@ function chooseAppellationScope(oldName,others){
 }
 
 /* ---- inline filter dropdowns (Maturité / Couleur / Cave) ---- */
-const GROUP_LABEL={statuts:"Maturité",couleurs:"Couleur",caves:"Cave",appellations:"Appellation",pays:"Pays",regions:"Région",sous_regions:"Sous-région",millesimes:"Millésime",capacites:"Capacité"};
+const GROUP_LABEL={statuts:"Maturité",note:"Note",couleurs:"Couleur",caves:"Cave",appellations:"Appellation",pays:"Pays",regions:"Région",sous_regions:"Sous-région",millesimes:"Millésime",capacites:"Capacité"};
 // Geography hierarchy (coarse -> fine). Filters cascade: each level's options are
 // limited to wines matching the selections in the levels above it.
 const GEO=[{group:"pays",field:"pays"},{group:"regions",field:"region"},{group:"sous_regions",field:"sous_region"},{group:"appellations",field:"appellation"}];
@@ -583,11 +603,28 @@ function buildFilters(){
   };
   document.querySelectorAll("#filterbar .dd").forEach(dd=>{
     const group=dd.dataset.group, gi=GEO.findIndex(g=>g.group===group);
-    fillDDPanel(dd,group, gi>=0 ? geoOptions(gi).map(v=>[v,v]) : staticOpts[group]);
+    if(group==="note") wireNoteFilter(dd);
+    else fillDDPanel(dd,group, gi>=0 ? geoOptions(gi).map(v=>[v,v]) : staticOpts[group]);
     const btn=dd.querySelector(".dd-btn"); btn.setAttribute("aria-haspopup","true"); btn.setAttribute("aria-expanded","false");
     btn.addEventListener("click",e=>{ e.stopPropagation(); const wasOpen=dd.classList.contains("open"); closeDD();
       if(!wasOpen){ dd.classList.add("open"); btn.setAttribute("aria-expanded","true"); positionDD(dd); } });
   });
+}
+// The "Note" filter is a range, not a checkbox list: engage it (or move a slider) and
+// only wines that HAVE a grade in [min,max] pass — full range 0–20 = every graded wine.
+function wireNoteFilter(dd){
+  const panel=dd.querySelector(".dd-panel"); panel.onclick=e=>e.stopPropagation();
+  panel.innerHTML=`<label class="nr-toggle"><input type="checkbox" class="nr-on"><span>Filtrer par note</span></label>`
+    +`<div class="nr-row"><span class="nr-k">min</span><input type="range" class="nr-min" min="0" max="20" step="1" value="0"><b class="nr-minv">0</b></div>`
+    +`<div class="nr-row"><span class="nr-k">max</span><input type="range" class="nr-max" min="0" max="20" step="1" value="20"><b class="nr-maxv">20</b></div>`
+    +`<p class="nr-hint">Les vins sans note sont masqués.</p>`;
+  const on=panel.querySelector(".nr-on"), mn=panel.querySelector(".nr-min"), mx=panel.querySelector(".nr-max"),
+        mnv=panel.querySelector(".nr-minv"), mxv=panel.querySelector(".nr-maxv");
+  const sync=activate=>{ const lo=Math.min(+mn.value,+mx.value), hi=Math.max(+mn.value,+mx.value);
+    mnv.textContent=lo; mxv.textContent=hi; if(activate) on.checked=true;
+    STATE.grade=on.checked?{min:lo,max:hi}:null; render(); };
+  on.addEventListener("change",()=>sync(false));
+  mn.addEventListener("input",()=>sync(true)); mx.addEventListener("input",()=>sync(true));
 }
 // Filter panels render as fixed popovers (positioned to their button, clamped to the
 // viewport) so the horizontally-scrolling filter bar can't clip them.
@@ -604,7 +641,15 @@ addEventListener("resize",closeDD);
 function updateFilterButtons(){
   let dirty=!STATE.stockOnly;
   document.querySelectorAll("#filterbar .dd").forEach(dd=>{
-    const group=dd.dataset.group, n=STATE[group].size, btn=dd.querySelector(".dd-btn");
+    const group=dd.dataset.group, btn=dd.querySelector(".dd-btn");
+    if(group==="note"){
+      const on=!!STATE.grade;
+      btn.replaceChildren(document.createTextNode(on?`Note ${fmtNote(STATE.grade.min)}–${fmtNote(STATE.grade.max)}`:"Note"));
+      const ch=el("span","chev"); ch.innerHTML=svg("chevron",18); btn.append(ch);
+      btn.classList.toggle("active",on); if(on) dirty=true;
+      return;
+    }
+    const n=STATE[group].size;
     btn.replaceChildren(document.createTextNode(GROUP_LABEL[group]));
     const ch=el("span","chev"); ch.innerHTML=svg("chevron",18); btn.append(ch);
     if(n){ btn.append(el("span","cnt",String(n))); dirty=true; }  // absolute badge → no layout shift, no extra width
@@ -612,8 +657,10 @@ function updateFilterButtons(){
   });
   $("#reset-filters").classList.toggle("off",!dirty);
 }
-function resetFilters(){ for(const g of FILTER_GROUPS) STATE[g].clear(); STATE.stockOnly=true;
-  $("#stockonly").checked=true; document.querySelectorAll("#filterbar input[type=checkbox]").forEach(cb=>cb.checked=false); refreshGeo(-1); }
+function resetFilters(){ for(const g of FILTER_GROUPS) STATE[g].clear(); STATE.stockOnly=true; STATE.grade=null;
+  $("#stockonly").checked=true; document.querySelectorAll("#filterbar input[type=checkbox]").forEach(cb=>cb.checked=false);
+  const np=document.querySelector(".note-panel"); if(np&&np.querySelector(".nr-min")){ np.querySelector(".nr-min").value=0; np.querySelector(".nr-max").value=20; np.querySelector(".nr-minv").textContent="0"; np.querySelector(".nr-maxv").textContent="20"; }
+  refreshGeo(-1); }
 function resetAll(){ resetFilters(); $("#search").value=""; STATE.search=""; $("#search-clear").hidden=true; render(); }
 $("#reset-filters").addEventListener("click",()=>{ resetFilters(); render(); });
 $("#stockonly").addEventListener("change",e=>{ STATE.stockOnly=e.target.checked; render(); });
