@@ -192,6 +192,73 @@
     z-index:25; background:var(--text); color:var(--bg); font-size:var(--text-sm); padding:var(--space-2) var(--space-4);
     border-radius:var(--radius-pill); box-shadow:var(--shadow-lg); display:none; align-items:center; gap:var(--space-2); }
   .offline-bar.show { display:flex; }
+
+  /* ---- tabs + statistics ---- */
+  .tabsw { display:inline-flex; gap:2px; margin:var(--space-2) 0 var(--space-1); padding:3px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-pill); }
+  .tabsw-b { padding:.35rem 1rem; border-radius:var(--radius-pill); color:var(--text-muted); font-size:var(--text-sm);
+    transition:background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease); }
+  .tabsw-b.on { background:var(--surface-1); color:var(--text); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  @media (hover: hover) { .tabsw-b:not(.on):hover { color:var(--text); } }
+
+  .stats { display:none; flex-direction:column; gap:var(--space-3); padding-bottom:calc(5rem + env(safe-area-inset-bottom,0px)); }
+  body[data-tab="stats"] .stats { display:flex; }
+  body[data-tab="stats"] #list { display:none; }
+  body[data-tab="stats"] #sort-btn, body[data-tab="stats"] #add { display:none; }
+  .substats { display:flex; gap:var(--space-2); overflow-x:auto; scrollbar-width:none; }
+  .substats::-webkit-scrollbar { display:none; }
+  .substat { flex:0 0 auto; white-space:nowrap; font-size:var(--text-sm); padding:var(--space-2) var(--space-3);
+    border:1px solid var(--border); border-radius:var(--radius-pill); background:var(--surface-1); color:var(--text-muted);
+    transition:background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+  .substat.on { background:var(--accent); border-color:var(--accent); color:var(--accent-contrast); font-weight:600; }
+  @media (hover: hover) { .substat:not(.on):hover { border-color:var(--border-strong); color:var(--text); } }
+
+  .stats .stage { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:var(--space-4); max-height:calc(100dvh - 250px); overflow:auto; }
+  .stat-h { display:flex; justify-content:space-between; align-items:baseline; gap:var(--space-2); margin:0; }
+  .stat-h h3 { font-family:var(--font-serif); font-weight:600; font-size:var(--text-lg); margin:0; }
+  .stat-h .aside { font-size:var(--text-sm); color:var(--text-muted); }
+  .stat-cap { font-size:var(--text-xs); color:var(--text-subtle); margin:.2rem 0 var(--space-4); }
+  .stat-empty { color:var(--text-muted); text-align:center; padding:var(--space-10) 0; font-family:var(--font-serif); font-size:var(--text-lg); }
+
+  .st-mtiles { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-2); margin-bottom:var(--space-4); }
+  .st-mt { border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--space-3) var(--space-2); text-align:center; }
+  .st-mt .n { font-family:var(--font-serif); font-size:1.7rem; line-height:1; font-variant-numeric:tabular-nums; }
+  .st-mt .l { font-size:var(--text-xs); color:var(--text-muted); margin-top:.3rem; }
+  .st-mt.ready { background:var(--st-ready-bg); } .st-mt.ready .n { color:var(--st-ready-fg); }
+  .st-mt.late { background:var(--st-late-bg); } .st-mt.late .n { color:var(--st-late-fg); }
+  .st-mt.keep { background:var(--st-keep-bg); } .st-mt.keep .n { color:var(--st-keep-fg); }
+  .st-mt.unknown { background:var(--st-unknown-bg); } .st-mt.unknown .n { color:var(--st-unknown-fg); }
+  .st-stack { display:flex; height:26px; border-radius:7px; overflow:hidden; gap:2px; }
+  .st-stack i { display:block; height:100%; }
+  .st-stack .ready{background:var(--st-ready-fg)} .st-stack .late{background:var(--st-late-fg)} .st-stack .keep{background:var(--st-keep-fg)} .st-stack .unknown{background:var(--st-unknown-fg)}
+
+  .st-rows { display:flex; flex-direction:column; gap:var(--space-2); }
+  .st-row { display:grid; grid-template-columns:104px 1fr 34px; align-items:center; gap:var(--space-2); font-size:var(--text-sm); }
+  .st-row .nm { display:flex; align-items:center; gap:.4rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .st-row .tr { height:14px; background:var(--surface-2); border-radius:5px; overflow:hidden; }
+  .st-row .fl { height:100%; border-radius:5px; background:var(--accent); }
+  .st-row .v { font-variant-numeric:tabular-nums; color:var(--text-muted); text-align:right; }
+  .st-sw { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
+
+  .st-tl { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:var(--space-2); align-items:end; height:190px; }
+  .st-tl .c { display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:.3rem; }
+  .st-tl .b { border-radius:5px 5px 2px 2px; min-height:3px; }
+  .st-tl .b.past{background:var(--st-late-fg)} .st-tl .b.now{background:var(--st-ready-fg)} .st-tl .b.later{background:var(--st-keep-fg)}
+  .st-tl .cn { font-size:var(--text-xs); color:var(--text-muted); text-align:center; font-variant-numeric:tabular-nums; }
+  .st-tlx { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:var(--space-2); margin-top:.4rem; }
+  .st-tlx span { font-size:10px; color:var(--text-subtle); text-align:center; }
+  .st-tlx span.mk { color:var(--st-ready-fg); font-weight:700; }
+
+  .st-plot { position:relative; height:200px; margin:var(--space-4) var(--space-1) 0 26px; border-left:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .st-zone { position:absolute; left:0; top:0; width:40%; height:42%; background:var(--st-ready-bg); border-right:1px dashed var(--border); border-bottom:1px dashed var(--border); }
+  .st-zone span { position:absolute; left:6px; top:6px; font-size:10px; color:var(--st-ready-fg); font-weight:600; }
+  .st-pt { position:absolute; width:12px; height:12px; border-radius:50%; background:var(--accent); border:2px solid var(--surface-1); transform:translate(-50%,50%); }
+  .st-yl { position:absolute; left:-22px; font-size:10px; color:var(--text-subtle); }
+  .st-ax { display:flex; justify-content:space-between; margin:var(--space-5) var(--space-1) 0 26px; font-size:10px; color:var(--text-subtle); }
+  .st-best { display:flex; gap:var(--space-2); margin-top:var(--space-4); }
+  .st-best .b { flex:1; min-width:0; background:var(--surface-2); border-radius:var(--radius-sm); padding:var(--space-2); text-align:center; font-size:var(--text-xs); color:var(--text-muted); }
+  .st-best .b .nm { display:block; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:.2rem; }
 </style>
 </head>
 <body>
@@ -208,6 +275,10 @@
   </header>
 
   <div class="wrap">
+    <div class="tabsw" role="tablist" aria-label="Vue">
+      <button type="button" class="tabsw-b on" data-tab="cave" role="tab">Cave</button>
+      <button type="button" class="tabsw-b" data-tab="stats" role="tab">Statistiques</button>
+    </div>
     <section class="summary">
       <p class="summary-total" id="summary-total"></p>
       <p class="summary-caves" id="summary-caves"></p>
@@ -244,6 +315,16 @@
     </div>
 
     <main class="list" id="list"></main>
+    <section class="stats" id="stats" aria-label="Statistiques">
+      <div class="substats" id="substats">
+        <button type="button" class="substat on" data-k="mat">Maturité</button>
+        <button type="button" class="substat" data-k="gar">Fenêtre de garde</button>
+        <button type="button" class="substat" data-k="cou">Couleur</button>
+        <button type="button" class="substat" data-k="reg">Région</button>
+        <button type="button" class="substat" data-k="qp">Qualité / prix</button>
+      </div>
+      <div class="stage" id="stats-stage"></div>
+    </section>
   </div>
 
   <button class="fab" id="add"></button>
@@ -309,7 +390,7 @@ const fmtNote=n=>String(Math.round(n*10)/10).replace(".",",");
 function gradeOf(w){ const ns=(w.degustations||[]).map(d=>d.note).filter(n=>n!=null); return ns.length?ns.reduce((a,b)=>a+b,0)/ns.length:null; }
 
 let STATE={ wines:[], meta:null, colorMap:{}, appWin:{}, defaultCave:"", year:new Date().getFullYear(),
-  search:"", sort:"maturite", stockOnly:true, grade:null, couleurs:new Set(), caves:new Set(), statuts:new Set(),
+  search:"", sort:"maturite", stockOnly:true, grade:null, tab:"cave", statSub:"mat", couleurs:new Set(), caves:new Set(), statuts:new Set(),
   appellations:new Set(), pays:new Set(), regions:new Set(), sous_regions:new Set(), millesimes:new Set(), capacites:new Set() };
 const FILTER_GROUPS=["statuts","couleurs","caves","pays","regions","sous_regions","appellations","millesimes","capacites"];
 const appKey=(app,coul)=>String(app||"").trim().toLowerCase()+"\u0000"+String(coul||"").trim().toLowerCase();
@@ -435,10 +516,12 @@ function updateFilterFade(){
 $("#filterbar").addEventListener("scroll",updateFilterFade,{passive:true});
 addEventListener("resize",updateFilterFade);
 function render(){
-  const list=visible(), box=$("#list"); box.replaceChildren();
+  const list=visible();
   $("#count").textContent=plural(list.length,"vin");
   $("#sort-btn").innerHTML=svg("sort",18)+" Trier : <b>"+SORTS.find(s=>s[0]===STATE.sort)[1]+"</b>";
   updateFilterButtons(); updateFilterFade();
+  if(STATE.tab==="stats"){ renderStatsTab(list); return; }
+  const box=$("#list"); box.replaceChildren();
   if(!list.length){
     const e=el("div","empty"); e.append(el("div",null,"Aucun vin ne correspond."));
     if(STATE.search||!STATE.stockOnly||STATE.grade||FILTER_GROUPS.some(g=>STATE[g].size)){
@@ -663,6 +746,80 @@ function resetFilters(){ for(const g of FILTER_GROUPS) STATE[g].clear(); STATE.s
   refreshGeo(-1); }
 function resetAll(){ resetFilters(); $("#search").value=""; STATE.search=""; $("#search-clear").hidden=true; render(); }
 $("#reset-filters").addEventListener("click",()=>{ resetFilters(); render(); });
+
+/* ---- statistics tab (same filtered scope as the list; charts computed client-side) ---- */
+document.querySelectorAll(".tabsw-b").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
+document.querySelectorAll(".substat").forEach(b=>b.addEventListener("click",()=>{
+  STATE.statSub=b.dataset.k; document.querySelectorAll(".substat").forEach(x=>x.classList.toggle("on",x===b)); renderStatsTab(); }));
+function setTab(t){ STATE.tab=t; document.body.dataset.tab=t; closeDD();
+  document.querySelectorAll(".tabsw-b").forEach(b=>b.classList.toggle("on",b.dataset.tab===t)); render(); }
+function priceOf(w){ const ps=(w.lots||[]).map(l=>l.prix).filter(p=>p!=null).map(Number).filter(n=>n>0); return ps.length?ps.reduce((a,b)=>a+b,0)/ps.length:null; }
+function eurShort(v){ return Math.round(v).toLocaleString("fr-FR")+" €"; }
+function statHead(title,aside,cap){ const h=el("div"); const hd=el("div","stat-h"); hd.append(el("h3",null,title)); if(aside)hd.append(el("span","aside",aside)); h.append(hd); const box=document.createDocumentFragment(); box.append(h); if(cap)box.append(el("p","stat-cap",cap)); return box; }
+function renderStatsTab(scope){
+  scope=scope||visible(); const stage=$("#stats-stage"); if(!stage) return;
+  stage.replaceChildren();
+  if(!scope.length){ stage.append(el("p","stat-empty","Aucun vin dans cette sélection.")); return; }
+  const k=STATE.statSub||"mat";
+  ({mat:statMat,gar:statGarde,cou:statColour,reg:statRegion,qp:statQP}[k]||statMat)(scope,stage);
+}
+const ST_CLS={a_boire:"ready",en_retard:"late",a_conserver:"keep",inconnu:"unknown"};
+function statMat(scope,stage){
+  stage.append(statHead("Maturité","par bouteille","Ce qu'il faut boire — maintenant."));
+  const order=["a_boire","en_retard","a_conserver","inconnu"], lbl={a_boire:"À boire",en_retard:"En retard",a_conserver:"À garder",inconnu:"Inconnu"};
+  const b={}; order.forEach(s=>b[s]=0); for(const w of scope) b[w.maturite.status]+=w.total_quantite;
+  const tot=order.reduce((a,s)=>a+b[s],0)||1;
+  const tiles=el("div","st-mtiles");
+  for(const s of order){ if(s==="inconnu"&&!b[s]) continue; const t=el("div","st-mt "+ST_CLS[s]); t.append(el("div","n",String(b[s])),el("div","l",lbl[s])); tiles.append(t); }
+  stage.append(tiles);
+  const stack=el("div","st-stack"); for(const s of order){ if(!b[s])continue; const i=el("i"); i.className=ST_CLS[s]; i.style.width=(b[s]/tot*100)+"%"; stack.append(i); } stage.append(stack);
+}
+function barRows(scope,stage,keyFn,opts){
+  const m=new Map(); for(const w of scope){ const key=keyFn(w); if(key==null||key==="")continue; m.set(key,(m.get(key)||0)+w.total_quantite); }
+  let rows=[...m.entries()].filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  let extra=0; if(opts.top&&rows.length>opts.top){ extra=rows.slice(opts.top).reduce((a,[,v])=>a+v,0); rows=rows.slice(0,opts.top); }
+  const max=Math.max(1,...rows.map(([,v])=>v),extra);
+  const box=el("div","st-rows");
+  const addRow=(name,val,color,muted)=>{ const r=el("div","st-row"), nm=el("div","nm");
+    if(color){ const sw=el("span","st-sw"); sw.style.background=color; nm.append(sw); }
+    nm.append(document.createTextNode(name)); if(muted) nm.style.color="var(--text-muted)";
+    const tr=el("div","tr"), fl=el("div","fl"); fl.style.width=(val/max*100)+"%"; if(color)fl.style.background=color; if(muted)fl.style.background="var(--text-subtle)"; tr.append(fl);
+    r.append(nm,tr,el("div","v",String(val))); box.append(r); };
+  for(const [k,v] of rows) addRow(opts.label?opts.label(k):String(k), v, opts.color?opts.color(k):null, false);
+  if(extra) addRow("Autres",extra,null,true);
+  stage.append(box);
+}
+function statColour(scope,stage){ stage.append(statHead("Par couleur","bouteilles","La teinte de la barre = la couleur du vin.")); barRows(scope,stage,w=>w.couleur,{top:7,color:c=>hue(c)}); }
+function statRegion(scope,stage){ stage.append(statHead("Par région","top 7 · bouteilles","Rangé par volume — les noms longs tiennent en entier.")); barRows(scope,stage,w=>w.region,{top:7}); }
+function statGarde(scope,stage){
+  stage.append(statHead("Fenêtre de garde","apogée / année","Quand vos bouteilles atteignent leur apogée — pour planifier."));
+  const year=STATE.year, F=5, keys=["past"]; for(let i=0;i<=F;i++) keys.push(year+i); keys.push("plus");
+  const b={}; keys.forEach(k=>b[k]=0); let known=0;
+  for(const w of scope){ const db=w.maturite&&w.maturite.drink_by; if(db==null)continue; const q=w.total_quantite; known+=q;
+    if(db<year)b.past+=q; else if(db>year+F)b.plus+=q; else b[db]+=q; }
+  if(!known){ stage.append(el("p","stat-empty","Aucune fenêtre de garde connue ici.")); return; }
+  const max=Math.max(1,...keys.map(k=>b[k]));
+  const tl=el("div","st-tl"), xs=el("div","st-tlx");
+  const cls=k=>k==="past"?"past":(k===year?"now":"later");
+  const lab=k=>k==="past"?"dépassé":(k==="plus"?(year+F)+"+":(k===year?String(year):String(k)));
+  for(const k of keys){ const c=el("div","c"); c.append(el("div","cn",String(b[k]))); const bar=el("div","b "+cls(k)); bar.style.height=(b[k]/max*100)+"%"; c.append(bar); tl.append(c); xs.append(el("span",k===year?"mk":null,lab(k))); }
+  stage.append(tl,xs);
+}
+function statQP(scope,stage){
+  stage.append(statHead("Qualité / prix","vins dégustés","Note (/20) contre prix — en haut à gauche, les bonnes affaires."));
+  const pts=[]; for(const w of scope){ const g=gradeOf(w),p=priceOf(w); if(g!=null&&p!=null) pts.push({nom:w.nom,g,p}); }
+  if(!pts.length){ stage.append(el("p","stat-empty","Aucun vin noté avec un prix dans cette sélection.")); return; }
+  const maxP=Math.max(20,...pts.map(p=>p.p));
+  const plot=el("div","st-plot");
+  const zone=el("div","st-zone"); zone.append(el("span",null,"bon Q/P")); plot.append(zone);
+  const y20=el("span","st-yl","20"); y20.style.top="-6px"; const y10=el("span","st-yl","10"); y10.style.bottom="-6px"; plot.append(y20,y10);
+  for(const p of pts){ const d=el("span","st-pt"); d.style.left=Math.min(97,p.p/maxP*100)+"%"; d.style.bottom=Math.max(2,Math.min(96,(p.g-10)/10*100))+"%"; d.title=`${p.nom} — ${fmtNote(p.g)}/20 · ${eurShort(p.p)}`; plot.append(d); }
+  stage.append(plot);
+  const ax=el("div","st-ax"); ax.append(el("span",null,"0 €"),el("span",null,"prix →"),el("span",null,eurShort(maxP))); stage.append(ax);
+  const best=[...pts].sort((a,b)=>(b.g/b.p)-(a.g/a.p)).slice(0,3), bb=el("div","st-best");
+  for(const p of best){ const c=el("div","b"); c.append(el("span","nm",p.nom)); const nb=noteBadge(p.g); nb.classList.add("nb-sm"); c.append(nb,document.createTextNode(" · "+eurShort(p.p))); bb.append(c); }
+  stage.append(bb);
+}
 $("#stockonly").addEventListener("change",e=>{ STATE.stockOnly=e.target.checked; render(); });
 
 /* ---- sort sheet ---- */
