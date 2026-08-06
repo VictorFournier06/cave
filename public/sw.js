@@ -2,7 +2,7 @@
 // Shell is cache-first (instant, works offline). /api GETs are network-first with
 // a cache fallback, so the cellar still loads with no signal. Writes never touch
 // the SW — the app queues them itself (see index.html) and replays on reconnect.
-const CACHE = "cave-v41";
+const CACHE = "cave-v42";
 const SHELL = ["/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png", "/icon-192-maskable.png", "/icon-512-maskable.png", "/apple-touch-icon.png"];
 // Seed the data too, so the cellar is browsable offline on the very first session.
