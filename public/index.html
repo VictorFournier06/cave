@@ -235,12 +235,13 @@
   .st-stack i { display:block; height:100%; }
   .st-stack .ready{background:var(--st-ready-fg)} .st-stack .late{background:var(--st-late-fg)} .st-stack .keep{background:var(--st-keep-fg)} .st-stack .unknown{background:var(--st-unknown-fg)}
 
-  .st-rows { display:flex; flex-direction:column; gap:var(--space-2); }
-  .st-row { display:grid; grid-template-columns:104px 1fr 34px; align-items:center; gap:var(--space-2); font-size:var(--text-sm); }
-  .st-row .nm { display:flex; align-items:center; gap:.4rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .st-row .tr { height:14px; background:var(--surface-2); border-radius:5px; overflow:hidden; }
-  .st-row .fl { height:100%; border-radius:5px; background:var(--accent); }
-  .st-row .v { font-variant-numeric:tabular-nums; color:var(--text-muted); text-align:right; }
+  .st-rows { display:flex; flex-direction:column; gap:var(--space-3); }
+  .st-row { display:flex; flex-direction:column; gap:4px; }
+  .st-rtop { display:flex; justify-content:space-between; align-items:baseline; gap:var(--space-3); font-size:var(--text-sm); }
+  .st-rtop .nm { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:.4rem; }
+  .st-rtop .v { flex:0 0 auto; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .st-row .tr { height:8px; background:var(--surface-2); border-radius:4px; overflow:hidden; }
+  .st-row .fl { height:100%; border-radius:4px; background:var(--accent); }
   .st-sw { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
 
   .st-tl { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:var(--space-2); align-items:end; height:190px; }
@@ -781,24 +782,27 @@ function statMat(scope,stage){
   const stack=el("div","st-stack"); for(const s of order){ if(!b[s])continue; const i=el("i"); i.className=ST_CLS[s]; i.style.width=(b[s]/tot*100)+"%"; stack.append(i); } stage.append(stack);
 }
 function barRows(scope,stage,keyFn,opts){
+  opts=opts||{};
   const m=new Map(); for(const w of scope){ const key=keyFn(w); if(key==null||key==="")continue; m.set(key,(m.get(key)||0)+w.total_quantite); }
-  let rows=[...m.entries()].filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  let extra=0; if(opts.top&&rows.length>opts.top){ extra=rows.slice(opts.top).reduce((a,[,v])=>a+v,0); rows=rows.slice(0,opts.top); }
-  const max=Math.max(1,...rows.map(([,v])=>v),extra);
+  const rows=[...m.entries()].filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]),"fr"));
+  if(!rows.length){ stage.append(el("p","stat-empty","Rien à afficher.")); return; }
+  const max=rows[0][1]||1;
   const box=el("div","st-rows");
-  const addRow=(name,val,color,muted)=>{ const r=el("div","st-row"), nm=el("div","nm");
+  for(const [k,v] of rows){
+    const label=opts.label?opts.label(k):String(k), color=opts.color?opts.color(k):null;
+    const r=el("div","st-row"), top=el("div","st-rtop"), nm=el("div","nm");
     if(color){ const sw=el("span","st-sw"); sw.style.background=color; nm.append(sw); }
-    nm.append(document.createTextNode(name)); if(muted) nm.style.color="var(--text-muted)";
-    const tr=el("div","tr"), fl=el("div","fl"); fl.style.width=(val/max*100)+"%"; if(color)fl.style.background=color; if(muted)fl.style.background="var(--text-subtle)"; tr.append(fl);
-    r.append(nm,tr,el("div","v",String(val))); box.append(r); };
-  for(const [k,v] of rows) addRow(opts.label?opts.label(k):String(k), v, opts.color?opts.color(k):null, false);
-  if(extra) addRow("Autres",extra,null,true);
+    nm.append(document.createTextNode(label)); nm.title=label;
+    top.append(nm, el("span","v",String(v)));
+    const tr=el("div","tr"), fl=el("div","fl"); fl.style.width=(v/max*100)+"%"; if(color)fl.style.background=color; tr.append(fl);
+    r.append(top,tr); box.append(r);
+  }
   stage.append(box);
 }
-function statColour(scope,stage){ stage.append(statHead("Par couleur","bouteilles","La teinte de la barre = la couleur du vin.")); barRows(scope,stage,w=>w.couleur,{top:7,color:c=>hue(c)}); }
-function statRegion(scope,stage){ stage.append(statHead("Par région","top 7 · bouteilles","Rangé par volume — les noms longs tiennent en entier.")); barRows(scope,stage,w=>w.region,{top:7}); }
-function statSousRegion(scope,stage){ stage.append(statHead("Par sous-région","top 7 · bouteilles","Rangé par volume — les vins sans sous-région sont ignorés.")); barRows(scope,stage,w=>w.sous_region,{top:7}); }
-function statAppellation(scope,stage){ stage.append(statHead("Par appellation","top 8 · bouteilles","Rangé par volume.")); barRows(scope,stage,w=>w.appellation,{top:8}); }
+function statColour(scope,stage){ stage.append(statHead("Par couleur","bouteilles","La teinte de la barre = la couleur du vin.")); barRows(scope,stage,w=>w.couleur,{color:c=>hue(c)}); }
+function statRegion(scope,stage){ stage.append(statHead("Par région","bouteilles","Toutes les régions, rangées par volume.")); barRows(scope,stage,w=>w.region,{}); }
+function statSousRegion(scope,stage){ stage.append(statHead("Par sous-région","bouteilles","Toutes les sous-régions ; les vins sans sous-région sont ignorés.")); barRows(scope,stage,w=>w.sous_region,{}); }
+function statAppellation(scope,stage){ stage.append(statHead("Par appellation","bouteilles","Toutes les appellations, rangées par volume.")); barRows(scope,stage,w=>w.appellation,{}); }
 function statGarde(scope,stage){
   stage.append(statHead("Fenêtre de garde","apogée / année","Quand vos bouteilles atteignent leur apogée — pour planifier."));
   const year=STATE.year, F=5, keys=["past"]; for(let i=0;i<=F;i++) keys.push(year+i); keys.push("plus");
