@@ -325,6 +325,7 @@
         <button type="button" class="substat on" data-k="mat">Maturité</button>
         <button type="button" class="substat" data-k="gar">Fenêtre de garde</button>
         <button type="button" class="substat" data-k="cou">Couleur</button>
+        <button type="button" class="substat" data-k="pays">Pays</button>
         <button type="button" class="substat" data-k="reg">Région</button>
         <button type="button" class="substat" data-k="sreg">Sous-région</button>
         <button type="button" class="substat" data-k="app">Appellation</button>
@@ -768,7 +769,7 @@ function renderStatsTab(scope){
   stage.replaceChildren();
   if(!scope.length){ stage.append(el("p","stat-empty","Aucun vin dans cette sélection.")); return; }
   const k=STATE.statSub||"mat";
-  ({mat:statMat,gar:statGarde,cou:statColour,reg:statRegion,sreg:statSousRegion,app:statAppellation,qp:statQP}[k]||statMat)(scope,stage);
+  ({mat:statMat,gar:statGarde,cou:statColour,pays:statPays,reg:statRegion,sreg:statSousRegion,app:statAppellation,qp:statQP}[k]||statMat)(scope,stage);
 }
 const ST_CLS={a_boire:"ready",en_retard:"late",a_conserver:"keep",inconnu:"unknown"};
 function statMat(scope,stage){
@@ -800,6 +801,7 @@ function barRows(scope,stage,keyFn,opts){
   stage.append(box);
 }
 function statColour(scope,stage){ stage.append(statHead("Par couleur","bouteilles","La teinte de la barre = la couleur du vin.")); barRows(scope,stage,w=>w.couleur,{color:c=>hue(c)}); }
+function statPays(scope,stage){ stage.append(statHead("Par pays","bouteilles","Tous les pays, rangés par volume.")); barRows(scope,stage,w=>w.pays,{}); }
 function statRegion(scope,stage){ stage.append(statHead("Par région","bouteilles","Toutes les régions, rangées par volume.")); barRows(scope,stage,w=>w.region,{}); }
 function statSousRegion(scope,stage){ stage.append(statHead("Par sous-région","bouteilles","Toutes les sous-régions ; les vins sans sous-région sont ignorés.")); barRows(scope,stage,w=>w.sous_region,{}); }
 function statAppellation(scope,stage){ stage.append(statHead("Par appellation","bouteilles","Toutes les appellations, rangées par volume.")); barRows(scope,stage,w=>w.appellation,{}); }
