@@ -104,14 +104,6 @@
   .nb-sm { padding:.05rem .32rem; }
   .nb-sm b { font-size:var(--text-base); }
   .nb-sm small { font-size:9px; }
-  /* grade (note) range filter panel */
-  .note-panel { min-width:210px; padding:var(--space-3); }
-  .nr-toggle { display:flex; align-items:center; gap:var(--space-2); font-size:var(--text-sm); cursor:pointer; padding:0 0 var(--space-2); }
-  .nr-toggle input { width:16px; height:16px; accent-color:var(--accent); flex:0 0 auto; }
-  .nr-row { display:grid; grid-template-columns:2rem 1fr 1.4rem; align-items:center; gap:var(--space-2); margin-top:var(--space-2); font-size:var(--text-sm); }
-  .nr-k { color:var(--text-muted); }
-  .nr-row input[type=range] { width:100%; accent-color:var(--accent); }
-  .nr-row b { font-variant-numeric:tabular-nums; text-align:right; }
   .qte { font-family:var(--font-serif); font-size:var(--text-lg); }
   .qte small { font-size:var(--text-xs); color:var(--text-subtle); font-family:var(--font-sans); }
   .qte.zero { color:var(--text-subtle); }
@@ -287,8 +279,6 @@
       <div class="filterwrap">
       <div class="filterbar" id="filterbar">
         <div class="dd" data-group="statuts"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
-        <div class="dd" data-group="note"><button type="button" class="dd-btn"></button><div class="dd-panel note-panel"></div></div>
-        <div class="dd" data-group="qp"><button type="button" class="dd-btn"></button><div class="dd-panel note-panel"></div></div>
         <div class="dd" data-group="couleurs"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
         <div class="dd" data-group="caves"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
         <div class="dd" data-group="pays"><button type="button" class="dd-btn"></button><div class="dd-panel"></div></div>
@@ -374,7 +364,7 @@ const hue=c=>{
 const MAT_LABEL={ a_boire:"À boire", en_retard:"En retard", a_conserver:"À garder", inconnu:"—" };
 const MAT_PILL={ a_boire:"ready", en_retard:"late", a_conserver:"keep", inconnu:"unknown" };
 const STATUTS=[["a_boire","À boire"],["en_retard","En retard"],["a_conserver","À garder"]];
-const SORTS=[["maturite","À boire d'abord"],["nom","Nom (A–Z)"],["vieux","Plus vieux"],["stock","Stock faible"]];
+const SORTS=[["maturite","À boire d'abord"],["note","Meilleure note"],["qp","Meilleur rapport Q/P"],["nom","Nom (A–Z)"],["vieux","Plus vieux"],["stock","Stock faible"]];
 const CAPS=[[0.375,"Demi · 0,375 L"],[0.75,"Bouteille · 0,75 L"],[1,"Litre · 1 L"],[1.5,"Magnum · 1,5 L"],[3,"Double-magnum · 3 L"],[5,"Jéroboam · 5 L"],[6,"Mathusalem · 6 L"]];
 
 const $=s=>document.querySelector(s);
@@ -389,7 +379,7 @@ function gradeOf(w){ const ns=(w.degustations||[]).map(d=>d.note).filter(n=>n!=n
 function ratioOf(w){ const g=gradeOf(w), p=priceOf(w); return (g!=null&&p!=null&&p>0)?g/p:null; }
 
 let STATE={ wines:[], meta:null, colorMap:{}, appWin:{}, defaultCave:"", year:new Date().getFullYear(),
-  search:"", sort:"maturite", stockOnly:true, grade:null, qp:null, tab:"cave", statSub:"mat", couleurs:new Set(), caves:new Set(), statuts:new Set(),
+  search:"", sort:"maturite", stockOnly:true, tab:"cave", statSub:"mat", couleurs:new Set(), caves:new Set(), statuts:new Set(),
   appellations:new Set(), pays:new Set(), regions:new Set(), sous_regions:new Set(), millesimes:new Set(), capacites:new Set() };
 const FILTER_GROUPS=["statuts","couleurs","caves","pays","regions","sous_regions","appellations","millesimes","capacites"];
 const appKey=(app,coul)=>String(app||"").trim().toLowerCase()+"\u0000"+String(coul||"").trim().toLowerCase();
@@ -478,8 +468,6 @@ function visible(){
   const q=STATE.search.trim().toLowerCase();
   let list=STATE.wines.filter(w=>{
     if(STATE.stockOnly&&w.total_quantite===0) return false;
-    if(STATE.grade){ const g=gradeOf(w); if(g==null||g<STATE.grade.min||g>STATE.grade.max) return false; }
-    if(STATE.qp){ const r=ratioOf(w); if(r==null||r<STATE.qp.min||r>STATE.qp.max) return false; }
     if(STATE.couleurs.size&&!STATE.couleurs.has(w.couleur)) return false;
     if(STATE.statuts.size&&!STATE.statuts.has(w.maturite.status)) return false;
     if(STATE.caves.size){ const cs=(w.caves||"").split(","); if(!cs.some(c=>STATE.caves.has(c))) return false; }
@@ -500,7 +488,10 @@ function visible(){
   // THEN by urgency within a status. Sorting on urgency alone let a wide-windowed "à boire"
   // fall behind a near-window "à conserver".
   const MATRANK={en_retard:0,a_boire:1,a_conserver:2,inconnu:3}, matRank=w=>{const r=MATRANK[w.maturite.status];return r==null?3:r;};
-  if(STATE.sort==="nom") list.sort(byName);
+  const gr=w=>{const g=gradeOf(w);return g==null?-1:g;}, rt=w=>{const r=ratioOf(w);return r==null?-1:r;};
+  if(STATE.sort==="note") list.sort((a,b)=>gr(b)-gr(a)||byName(a,b));       // best grade first, untasted last
+  else if(STATE.sort==="qp") list.sort((a,b)=>rt(b)-rt(a)||byName(a,b));    // best value first, no-ratio last
+  else if(STATE.sort==="nom") list.sort(byName);
   else if(STATE.sort==="vieux") list.sort((a,b)=>(a.millesime||9999)-(b.millesime||9999)||byName(a,b));
   else if(STATE.sort==="stock") list.sort((a,b)=>noStock(a)-noStock(b)||a.total_quantite-b.total_quantite||byName(a,b));
   else list.sort((a,b)=>noStock(a)-noStock(b)||matRank(a)-matRank(b)||urg(b)-urg(a)||byName(a,b));
@@ -524,7 +515,7 @@ function render(){
   const box=$("#list"); box.replaceChildren();
   if(!list.length){
     const e=el("div","empty"); e.append(el("div",null,"Aucun vin ne correspond."));
-    if(STATE.search||!STATE.stockOnly||STATE.grade||STATE.qp||FILTER_GROUPS.some(g=>STATE[g].size)){
+    if(STATE.search||!STATE.stockOnly||FILTER_GROUPS.some(g=>STATE[g].size)){
       const b=el("button","btn btn--sm","Réinitialiser"); b.style.marginTop="var(--space-4)"; b.addEventListener("click",resetAll); e.append(b);
     }
     box.append(e); return;
@@ -642,7 +633,7 @@ function chooseAppellationScope(oldName,others){
 }
 
 /* ---- inline filter dropdowns (Maturité / Couleur / Cave) ---- */
-const GROUP_LABEL={statuts:"Maturité",note:"Note",qp:"Q/P",couleurs:"Couleur",caves:"Cave",appellations:"Appellation",pays:"Pays",regions:"Région",sous_regions:"Sous-région",millesimes:"Millésime",capacites:"Capacité"};
+const GROUP_LABEL={statuts:"Maturité",couleurs:"Couleur",caves:"Cave",appellations:"Appellation",pays:"Pays",regions:"Région",sous_regions:"Sous-région",millesimes:"Millésime",capacites:"Capacité"};
 // Geography hierarchy (coarse -> fine). Filters cascade: each level's options are
 // limited to wines matching the selections in the levels above it.
 const GEO=[{group:"pays",field:"pays"},{group:"regions",field:"region"},{group:"sous_regions",field:"sous_region"},{group:"appellations",field:"appellation"}];
@@ -686,45 +677,11 @@ function buildFilters(){
   };
   document.querySelectorAll("#filterbar .dd").forEach(dd=>{
     const group=dd.dataset.group, gi=GEO.findIndex(g=>g.group===group);
-    if(group==="note") wireNoteFilter(dd);
-    else if(group==="qp") wireQpFilter(dd);
-    else fillDDPanel(dd,group, gi>=0 ? geoOptions(gi).map(v=>[v,v]) : staticOpts[group]);
+    fillDDPanel(dd,group, gi>=0 ? geoOptions(gi).map(v=>[v,v]) : staticOpts[group]);
     const btn=dd.querySelector(".dd-btn"); btn.setAttribute("aria-haspopup","true"); btn.setAttribute("aria-expanded","false");
     btn.addEventListener("click",e=>{ e.stopPropagation(); const wasOpen=dd.classList.contains("open"); closeDD();
       if(!wasOpen){ dd.classList.add("open"); btn.setAttribute("aria-expanded","true"); positionDD(dd); } });
   });
-}
-// The "Note" filter is a range, not a checkbox list: engage it (or move a slider) and
-// only wines that HAVE a grade in [min,max] pass — full range 0–20 = every graded wine.
-function wireNoteFilter(dd){
-  const panel=dd.querySelector(".dd-panel"); panel.onclick=e=>e.stopPropagation();
-  panel.innerHTML=`<label class="nr-toggle"><input type="checkbox" class="nr-on"><span>Filtrer par note</span></label>`
-    +`<div class="nr-row"><span class="nr-k">min</span><input type="range" class="nr-min" min="0" max="20" step="1" value="0"><b class="nr-minv">0</b></div>`
-    +`<div class="nr-row"><span class="nr-k">max</span><input type="range" class="nr-max" min="0" max="20" step="1" value="20"><b class="nr-maxv">20</b></div>`;
-  const on=panel.querySelector(".nr-on"), mn=panel.querySelector(".nr-min"), mx=panel.querySelector(".nr-max"),
-        mnv=panel.querySelector(".nr-minv"), mxv=panel.querySelector(".nr-maxv");
-  const sync=activate=>{ const lo=Math.min(+mn.value,+mx.value), hi=Math.max(+mn.value,+mx.value);
-    mnv.textContent=lo; mxv.textContent=hi; if(activate) on.checked=true;
-    STATE.grade=on.checked?{min:lo,max:hi}:null; render(); };
-  on.addEventListener("change",()=>sync(false));
-  mn.addEventListener("input",()=>sync(true)); mx.addEventListener("input",()=>sync(true));
-}
-// The "Q/P" filter is the same idea on the grade÷price ratio; the slider tops out at the
-// cellar's best ratio. Full range => every wine that has both a note and a price.
-function wireQpFilter(dd){
-  const panel=dd.querySelector(".dd-panel"); panel.onclick=e=>e.stopPropagation();
-  let maxR=0; for(const w of STATE.wines){ const r=ratioOf(w); if(r!=null&&r>maxR) maxR=r; }
-  const hi=Math.max(1,Math.ceil(maxR*10)/10);
-  panel.innerHTML=`<label class="nr-toggle"><input type="checkbox" class="nr-on"><span>Filtrer par rapport Q/P</span></label>`
-    +`<div class="nr-row"><span class="nr-k">min</span><input type="range" class="nr-min" min="0" max="${hi}" step="0.1" value="0"><b class="nr-minv">0</b></div>`
-    +`<div class="nr-row"><span class="nr-k">max</span><input type="range" class="nr-max" min="0" max="${hi}" step="0.1" value="${hi}"><b class="nr-maxv">${fmtNote(hi)}</b></div>`;
-  const on=panel.querySelector(".nr-on"), mn=panel.querySelector(".nr-min"), mx=panel.querySelector(".nr-max"),
-        mnv=panel.querySelector(".nr-minv"), mxv=panel.querySelector(".nr-maxv");
-  const sync=activate=>{ const lo=Math.min(+mn.value,+mx.value), hiv=Math.max(+mn.value,+mx.value);
-    mnv.textContent=fmtNote(lo); mxv.textContent=fmtNote(hiv); if(activate) on.checked=true;
-    STATE.qp=on.checked?{min:lo,max:hiv}:null; render(); };
-  on.addEventListener("change",()=>sync(false));
-  mn.addEventListener("input",()=>sync(true)); mx.addEventListener("input",()=>sync(true));
 }
 // Filter panels render as fixed popovers (positioned to their button, clamped to the
 // viewport) so the horizontally-scrolling filter bar can't clip them.
@@ -742,13 +699,6 @@ function updateFilterButtons(){
   let dirty=!STATE.stockOnly;
   document.querySelectorAll("#filterbar .dd").forEach(dd=>{
     const group=dd.dataset.group, btn=dd.querySelector(".dd-btn");
-    if(group==="note"||group==="qp"){
-      const st=group==="note"?STATE.grade:STATE.qp, on=!!st, lbl=GROUP_LABEL[group];
-      btn.replaceChildren(document.createTextNode(on?`${lbl} ${fmtNote(st.min)}–${fmtNote(st.max)}`:lbl));
-      const ch=el("span","chev"); ch.innerHTML=svg("chevron",18); btn.append(ch);
-      btn.classList.toggle("active",on); if(on) dirty=true;
-      return;
-    }
     const n=STATE[group].size;
     btn.replaceChildren(document.createTextNode(GROUP_LABEL[group]));
     const ch=el("span","chev"); ch.innerHTML=svg("chevron",18); btn.append(ch);
@@ -757,9 +707,8 @@ function updateFilterButtons(){
   });
   $("#reset-filters").classList.toggle("off",!dirty);
 }
-function resetFilters(){ for(const g of FILTER_GROUPS) STATE[g].clear(); STATE.stockOnly=true; STATE.grade=null; STATE.qp=null;
+function resetFilters(){ for(const g of FILTER_GROUPS) STATE[g].clear(); STATE.stockOnly=true;
   $("#stockonly").checked=true; document.querySelectorAll("#filterbar input[type=checkbox]").forEach(cb=>cb.checked=false);
-  document.querySelectorAll(".note-panel").forEach(np=>{ const mn=np.querySelector(".nr-min"),mx=np.querySelector(".nr-max"); if(mn){ mn.value=mn.min; mx.value=mx.max; np.querySelector(".nr-minv").textContent=fmtNote(+mn.min); np.querySelector(".nr-maxv").textContent=fmtNote(+mx.max); } });
   refreshGeo(-1); }
 function resetAll(){ resetFilters(); $("#search").value=""; STATE.search=""; $("#search-clear").hidden=true; render(); }
 $("#reset-filters").addEventListener("click",()=>{ resetFilters(); render(); });
